@@ -88,6 +88,17 @@ class Decoder:
             # Reference numbers - not useful spoken aloud
             {"pattern": r"\s*\bbon:?\s*\d+", "replacement": ""},
             {"pattern": r"\s*\brit:?\s*\d+", "replacement": ""},
+            {"pattern": r"\s*\bicnum:?\s*\d+", "replacement": ""},
+            # Common role/discipline abbreviations - spoken in full
+            {"pattern": r"\bGHOR\b", "replacement": "Geneeskundige hulpverlening bij ongevallen en rampen"},
+            {"pattern": r"\bMMT\b", "replacement": "Mobiel medisch team"},
+            {"pattern": r"\bSEH\b", "replacement": "Spoedeisende Hulp"},
+            {"pattern": r"\bOVD-B\b", "replacement": "Officier van Dienst Brandweer"},
+            {"pattern": r"\bOVD-G\b", "replacement": "Officier van Dienst Geneeskundig"},
+            {"pattern": r"\bOVD-P\b", "replacement": "Officier van Dienst Politie"},
+            {"pattern": r"\bOvD\b", "replacement": "Officier van Dienst"},
+            {"pattern": r"\bPOL\b", "replacement": "Politie"},
+            {"pattern": r"\bRAV\b", "replacement": "Regionale ambulancevoorziening"},
             # Long standalone numbers (capcodes, other reference numbers) - postal
             # codes are 4 digits so they're left alone
             {"pattern": r"\s*\b\d{5,}\b", "replacement": ""},

@@ -140,6 +140,7 @@ ABBREVIATIONS = {
     # I
     "IBT": "Intern Bijstandsteam (Justitie)",
     "ICMS": "Intensivering Civiel Militaire Samenwerking",
+    "ICNUM": "Incidentnummer",
     "IM": "Incident Management",
     "IND": "Immigratie & Naturalisatiedienst",
     # K
