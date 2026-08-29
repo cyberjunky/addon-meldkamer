@@ -1518,24 +1518,6 @@ class Database:
             logger.error(f"Failed to get TTS replacements: {e}")
             return []
 
-    def remove_unmodified_tts_replacement(self, pattern: str, replacement: str) -> bool:
-        """Delete a TTS replacement only if it still matches exactly (pattern +
-        replacement) - used to retire a superseded default rule so it can be
-        reinserted with a later id (and thus a later position when applied),
-        without touching a row a user has since edited.
-        """
-        try:
-            self.cursor.execute(
-                "DELETE FROM tts_replacements WHERE pattern = ? AND replacement = ?",
-                (pattern, replacement),
-            )
-            removed = self.cursor.rowcount > 0
-            self._commit()
-            return removed
-        except Exception as e:
-            logger.error(f"Failed to remove stale TTS replacement: {e}")
-            return False
-
     def import_tts_replacements(self, replacements: list) -> int:
         """Bulk import TTS replacements from config. Returns count imported."""
         count = 0

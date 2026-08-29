@@ -2306,6 +2306,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     result = result.replace(new RegExp(rule.pattern, 'gi'), rule.replacement || '');
                 } catch (e) {}
             });
+            // A1/A2/B1/B2 already speak "Ambulance ... spoed"; collapse a
+            // following bare "Ambulance" (e.g. from an AMBU rule) so it isn't
+            // said twice, regardless of what order the rules above ran in.
+            result = result.replace(/\\bAmbulance\\b((?:\\s+(?:met|zonder)\\s+spoed)?)\\s+Ambulance\\b/gi, 'Ambulance$1');
             return result;
         }
 

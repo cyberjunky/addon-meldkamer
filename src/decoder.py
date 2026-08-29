@@ -78,9 +78,6 @@ class Decoder:
             {"pattern": r"BZB\-[0-9]+", "replacement": "Brandweer Zeeland"},
             # Ambulance dienstposten - short spoken form
             {"pattern": r"DP[0-9]+", "replacement": "Dienstpost"},
-            # AMBU right after a priority code already says "Ambulance ... spoed" -
-            # drop the redundant repeat; otherwise (no priority code) speak it out
-            {"pattern": r"(?<=spoed\s)AMBU\b\s*", "replacement": ""},
             {"pattern": r"\bAMBU\b", "replacement": "Ambulance"},
             # City abbreviations - short spoken forms (see city_abbreviations.py
             # for the full list used for address/city matching; only ones worth
@@ -107,11 +104,6 @@ class Decoder:
             # codes are 4 digits so they're left alone
             {"pattern": r"\s*\b\d{5,}\b", "replacement": ""},
         ]
-        # Retire the old unconditional AMBU rule (superseded by the spoed-aware
-        # dedup rule above) so it re-seeds after that rule and applies in the
-        # right order - only if it's still the untouched original default
-        database.remove_unmodified_tts_replacement(r"\bAMBU\b", "Ambulance")
-
         imported = database.import_tts_replacements(DEFAULT_TTS_REPLACEMENTS)
         if imported:
             logger.info(f"Seeded {imported} default TTS replacement(s) into database")
