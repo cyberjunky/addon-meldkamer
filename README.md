@@ -5,10 +5,7 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 ![Message details with map, vehicle classification, and abbreviation tags](screenshots/message-details.png)
 
 <details>
-<summary>More screenshots (Dashboard, Advanced, Database tabs)</summary>
-
-**Dashboard** — live map, sensor filter toggle, recent messages
-![Dashboard](screenshots/dashboard.png)
+<summary>More screenshots (Advanced, Database tabs)</summary>
 
 **Advanced** — receiver/device status, database stats, live charts
 ![Advanced tab](screenshots/advanced.png)
