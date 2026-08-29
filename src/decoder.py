@@ -78,6 +78,7 @@ class Decoder:
             {"pattern": r"BZB\-[0-9]+", "replacement": "Brandweer Zeeland"},
             # Ambulance dienstposten - short spoken form
             {"pattern": r"DP[0-9]+", "replacement": "Dienstpost"},
+            {"pattern": r"\bAMBU\b", "replacement": "Ambulance"},
             # City abbreviations - short spoken forms (see city_abbreviations.py
             # for the full list used for address/city matching; only ones worth
             # a distinct spoken form belong here)
