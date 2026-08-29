@@ -119,8 +119,11 @@ class SensorManager:
 
         distance_km = round(self._haversine_distance(msg_lat, msg_lon, filters.center_lat, filters.center_lon), 2)
 
-        # Record the computed distance on the message (keep the smallest across sensors)
-        if msg.distance == "" or distance_km < msg.distance:
+        # Record the computed distance on the message (keep the smallest across sensors).
+        # msg.distance is "" for a freshly-decoded P2000Message, but messages reloaded
+        # from the database (SQL NULL) or wrapped by _DictMessageView (missing/null key)
+        # come through as None instead - treat both as "not yet set".
+        if msg.distance in ("", None) or distance_km < msg.distance:
             msg.distance = distance_km
 
         return distance_km <= filters.radius_km

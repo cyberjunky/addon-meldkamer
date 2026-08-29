@@ -1890,24 +1890,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 </div>
                             </div>
 
+                        </div>
+
+                        <div class="panel-sub" style="margin: 18px 0 10px;">No import needed - built-in, auto-filled, or managed directly from the dashboard</div>
+                        <div class="db-cards">
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-step">4</span>
                                     <span class="db-card-icon">📖</span>
                                     <span class="db-card-title">Texts</span>
-                                    <span class="db-card-status empty" id="db-status-texts">-</span>
+                                    <span class="db-card-status ready" id="db-status-texts">-</span>
                                 </div>
-                                <div class="db-card-desc">300+ P2000 abbreviations with their full meanings, shown as tags in message details.</div>
+                                <div class="db-card-desc">300+ P2000 abbreviations with their full meanings, shown as tags in message details. Seeded automatically on startup - your own edits are never overwritten by that.</div>
                                 <div class="db-card-count"><span id="db-count-texts">0</span> rows</div>
                                 <div class="db-card-actions">
-                                    <button class="btn btn-success" onclick="dbImportAbbreviations(this)">Import Texts</button>
                                     <button class="btn" onclick="dbOpenTable('texts')">Manage</button>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="panel-sub" style="margin: 18px 0 10px;">Automatic data - fills in by itself, no import needed</div>
-                        <div class="db-cards">
                             <div class="db-card">
                                 <div class="db-card-head">
                                     <span class="db-card-icon">📨</span>
@@ -1979,7 +1978,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                     <span class="db-card-title">Vehicle Photos</span>
                                     <span class="db-card-status empty" id="db-status-vehicle_photos">-</span>
                                 </div>
-                                <div class="db-card-desc">Photos you've uploaded per voertuignummer (e.g. "TS 07-1782", "AMBU 17106") or vehicle category (e.g. "ambulance", "politie"), shown on matching messages.</div>
+                                <div class="db-card-desc">Photos you've uploaded per voertuignummer (e.g. "07-1782", "18-187") or vehicle category (e.g. "ambulance", "politie"), shown on matching messages.</div>
                                 <div class="db-card-count"><span id="db-count-vehicle_photos">0</span> rows</div>
                                 <div class="db-card-actions">
                                     <button class="btn" onclick="dbOpenTable('vehicle_photos')">Manage</button>
@@ -2665,8 +2664,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     </div>
                     <div class="form-field" data-db-vp-number-field style="display:none;">
                         <label>Voertuignummer</label>
-                        <input type="text" class="input" data-db-vp-number placeholder="e.g. TS 07-1782 or 17106">
-                        <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 4px;">Must match exactly as it appears in messages, e.g. "TS 07-1782" (fire brigade RR-XXXX format) or "AMBU 17106" (bare digits, ambulance-style).</div>
+                        <input type="text" class="input" data-db-vp-number placeholder="e.g. 07-1782 or 18-187">
+                        <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 4px;">The RR-NNN number only, without the vehicle-type prefix - e.g. "07-1782" (fire brigade) or "18-187" (ambulance region-unit). Check the vehicle's own #tag on a matching message's detail panel for the exact value to use.</div>
                     </div>
                     <div class="form-field">
                         <label>Label (optional)</label>

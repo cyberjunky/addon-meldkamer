@@ -6,6 +6,7 @@ import logging
 import re
 from collections.abc import Callable
 
+from . import abbreviation_import
 from .config import Config
 from .database import Database
 from .geocoding import Geocoder
@@ -47,6 +48,12 @@ class Decoder:
         self._process: asyncio.subprocess.Process | None = None
         self._running = False
         self.on_message: Callable[[P2000Message], None] | None = None
+
+        # Seed the built-in P2000 abbreviation dictionary (only new codes, won't
+        # overwrite a user's own edits to an existing abbreviation's text)
+        imported_abbrevs = abbreviation_import.import_abbreviations(database, replace=False)
+        if imported_abbrevs:
+            logger.info(f"Seeded {imported_abbrevs} default abbreviation(s) into database")
 
         # Seed default TTS replacements into database (only new ones, won't overwrite)
         DEFAULT_TTS_REPLACEMENTS = [

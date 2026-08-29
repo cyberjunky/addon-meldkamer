@@ -1400,19 +1400,27 @@ class Database:
             logger.error(f"Failed to delete abbreviation: {e}")
             return False
 
-    def import_abbreviations(self, abbrevs: list[dict[str, str]]) -> int:
-        """Bulk import abbreviations. Returns count imported."""
+    def import_abbreviations(self, abbrevs: list[dict[str, str]], replace: bool = True) -> int:
+        """Bulk import abbreviations. Returns count imported.
+
+        `replace=True` (the manual "Import Texts" button) overwrites existing
+        rows by abbreviation code - lets a user deliberately refresh from the
+        seed data. `replace=False` (startup auto-seed) only adds codes that
+        aren't already present, so it never reverts a user's own edits.
+        """
         count = 0
+        sql = (
+            "INSERT OR REPLACE INTO abbreviations (abbreviation, full_text) VALUES (?, ?)"
+            if replace
+            else "INSERT OR IGNORE INTO abbreviations (abbreviation, full_text) VALUES (?, ?)"
+        )
         try:
             for item in abbrevs:
                 abbrev = item.get("abbreviation", "").upper()
                 full_text = item.get("full_text", "")
                 if abbrev and full_text:
-                    self.cursor.execute(
-                        "INSERT OR REPLACE INTO abbreviations (abbreviation, full_text) VALUES (?, ?)",
-                        (abbrev, full_text),
-                    )
-                    count += 1
+                    self.cursor.execute(sql, (abbrev, full_text))
+                    count += self.cursor.rowcount if not replace else 1
             self._commit()
             self.invalidate_text_caches()
         except Exception as e:

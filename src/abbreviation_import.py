@@ -379,9 +379,14 @@ DISCIPLINE_ABBREVIATION_OVERRIDES: dict[tuple[str, str], str] = {
 }
 
 
-def import_abbreviations(database) -> int:
-    """Import all abbreviations to database. Returns count imported."""
+def import_abbreviations(database, replace: bool = True) -> int:
+    """Import all abbreviations to database. Returns count imported.
+
+    `replace=False` only adds codes not already present (see
+    Database.import_abbreviations) - used for the startup auto-seed so it
+    never reverts a user's own edits to an abbreviation's text.
+    """
     abbrevs = [{"abbreviation": k, "full_text": v} for k, v in ABBREVIATIONS.items()]
-    count = database.import_abbreviations(abbrevs)
+    count = database.import_abbreviations(abbrevs, replace=replace)
     logger.info(f"Imported {count} abbreviations")
     return count

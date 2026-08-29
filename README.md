@@ -2,6 +2,22 @@
 
 P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency services messages using RTL-SDR, HackRF, or network streaming.
 
+![Message details with map, vehicle classification, and abbreviation tags](screenshots/message-details.png)
+
+<details>
+<summary>More screenshots (Dashboard, Advanced, Database tabs)</summary>
+
+**Dashboard** — live map, sensor filter toggle, recent messages
+![Dashboard](screenshots/dashboard.png)
+
+**Advanced** — receiver/device status, database stats, live charts
+![Advanced tab](screenshots/advanced.png)
+
+**Database** — guided setup for reference data, auto-managed tables
+![Database tab](screenshots/database.png)
+
+</details>
+
 ## Features
 
 - 📡 **SDR Support** — RTL-SDR, HackRF One, SoapySDR devices, or network streaming
@@ -29,6 +45,12 @@ Access via Home Assistant sidebar → Meldkamer:
 - **Database Tab** — Card-based data management for every table below
 
 ### Database Tab
+
+A fresh install starts with an **empty** database (aside from the built-in P2000 abbreviation dictionary and TTS/ignore-text defaults) — message parsing, badges, geocoding, and map pins all improve as you populate it. Capcodes, Places, and Streets are one-click imports that fetch live, free, public Dutch data over the internet, no API key needed:
+
+- **Capcodes** — "Import Bommel" pulls ~10,000 capcodes from all 25 regions directly from [p2000.bommel.net](https://p2000.bommel.net/)
+- **Places** — "Import All Places" / "Import BAG" pull city and street data from the [PDOK Locatieserver](https://www.pdok.nl/) (Dutch government address/place registry)
+- **Streets** — "Import BAG" pulls official street names per province, also from PDOK
 
 Each table gets its own card with row counts and Manage/Import actions:
 
