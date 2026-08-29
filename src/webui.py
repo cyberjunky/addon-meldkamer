@@ -2177,7 +2177,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         // Sound notifications
         // =====================================================================
         let soundEnabled = localStorage.getItem('p2000_sound_enabled') !== 'false';
-        let lastMessageCount = 0;
         let audioContext = null;
 
         function initSoundToggle() {
@@ -2253,16 +2252,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             initAutoMapToggle();
         }
 
-        function autoShowLatestOnMap() {
-            setTimeout(() => {
-                fetch(basePath + 'api/messages').then(r => r.json()).then(messages => {
-                    // Show the newest message that actually has coordinates
-                    const target = (messages || []).find(m => m.latitude && m.longitude);
-                    if (target) {
-                        showMessageDetails(target);
-                    }
-                }).catch(e => console.log('Auto-map fetch failed:', e));
-            }, 500);
+        function autoShowLatestOnMap(latest) {
+            // Uses the already-filtered list passed in - re-fetching from
+            // /api/messages here (as this used to) ignores the current
+            // sensor filter and shows the newest message regardless of it.
+            const target = (latest || []).find(m => m.latitude && m.longitude);
+            if (target) {
+                showMessageDetails(target);
+            }
         }
 
         // =====================================================================
@@ -2326,19 +2323,29 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             speechSynthesis.speak(utterance);
         }
 
-        function checkForNewMessages(newCount, latest) {
-            if (lastMessageCount === 0) {
-                lastMessageCount = newCount;
+        // Tracks the top-of-list message's own timestamp, not the global
+        // message count - the global count increases for every decoded
+        // message regardless of the active sensor filter, which previously
+        // caused TTS/notifications to re-fire (and re-speak the same,
+        // unchanged filtered top message) whenever any non-matching message
+        // arrived, instead of only on a genuinely new matching one.
+        let lastSeenTopTimestamp = null;
+
+        function checkForNewMessages(latest) {
+            const top = (latest || [])[0];
+            const topTimestamp = top ? top.timestamp : null;
+            if (lastSeenTopTimestamp === null) {
+                lastSeenTopTimestamp = topTimestamp;
                 return;
             }
-            if (newCount > lastMessageCount) {
+            if (topTimestamp && topTimestamp !== lastSeenTopTimestamp) {
                 playNotificationSound();
-                speakMessage(latest);
+                speakMessage(top);
                 if (autoMapEnabled) {
-                    autoShowLatestOnMap();
+                    autoShowLatestOnMap(latest);
                 }
             }
-            lastMessageCount = newCount;
+            lastSeenTopTimestamp = topTimestamp;
         }
 
         initSoundToggle();
@@ -2848,7 +2855,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const stats = data.stats;
 
             renderSensorZones(stats.sensor_zones);
-            checkForNewMessages(stats.total_messages, (data.latest || [])[0]);
+            checkForNewMessages(data.latest || []);
 
             totalEl.textContent = stats.total_messages;
             regionsEl.textContent = countUnique(stats.by_region);
