@@ -2371,8 +2371,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             document.getElementById('tab-' + tabName).classList.add('active');
             if (tabName === 'dashboard') {
                 setTimeout(() => map.invalidateSize(), 100);
+                resyncIfStale();
             }
         }
+
+        // The live stream can silently die (dropped by a proxy, or the browser
+        // tab/this in-app tab being away for a while) with no visible error -
+        // reconnect + refetch on return instead of leaving it frozen until a
+        // manual page reload.
+        function resyncIfStale() {
+            if (typeof evtSource === 'undefined' || !evtSource || evtSource.readyState === EventSource.CLOSED) {
+                connectStream();
+            }
+            loadMessagesList();
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) resyncIfStale();
+        });
 
         // Uptime is recomputed client-side so the SSE stream can stay quiet
         // when nothing changed.
