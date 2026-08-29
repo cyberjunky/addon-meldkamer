@@ -2,16 +2,16 @@
 
 P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency services messages using RTL-SDR, HackRF, or network streaming.
 
-![Message details with map, vehicle classification, and abbreviation tags](screenshots/message-details.png)
+![Message details with map, vehicle classification, and abbreviation tags](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/message-details.png)
 
 <details>
 <summary>More screenshots (Advanced, Database tabs)</summary>
 
 **Advanced** — receiver/device status, database stats, live charts
-![Advanced tab](screenshots/advanced.png)
+![Advanced tab](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/advanced.png)
 
 **Database** — guided setup for reference data, auto-managed tables
-![Database tab](screenshots/database.png)
+![Database tab](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/database.png)
 
 </details>
 
