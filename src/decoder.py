@@ -78,6 +78,9 @@ class Decoder:
             {"pattern": r"BZB\-[0-9]+", "replacement": "Brandweer Zeeland"},
             # Ambulance dienstposten - short spoken form
             {"pattern": r"DP[0-9]+", "replacement": "Dienstpost"},
+            # AMBU right after a priority code already says "Ambulance ... spoed" -
+            # drop the redundant repeat; otherwise (no priority code) speak it out
+            {"pattern": r"(?<=spoed\s)AMBU\b\s*", "replacement": ""},
             {"pattern": r"\bAMBU\b", "replacement": "Ambulance"},
             # City abbreviations - short spoken forms (see city_abbreviations.py
             # for the full list used for address/city matching; only ones worth
@@ -85,6 +88,7 @@ class Decoder:
             {"pattern": r"\bSGRAVH\b", "replacement": "Den Haag"},
             # Status flags - drop the "(... : ja)" wrapper, just speak the label
             {"pattern": r"\(Directe inzet:\s*ja\)", "replacement": "Directe inzet"},
+            {"pattern": r"\(DIA:\s*ja\)", "replacement": "Directe inzet ambulance"},
             # Reference numbers - not useful spoken aloud
             {"pattern": r"\s*\bbon:?\s*\d+", "replacement": ""},
             {"pattern": r"\s*\brit:?\s*\d+", "replacement": ""},
