@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.ruff_cache/
+
+*.sqlite3
+*.db
+
+*.tmp
+*.tmp.*
+*.swp
+.DS_Store
+
+.env

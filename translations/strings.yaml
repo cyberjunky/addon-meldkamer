@@ -1,0 +1,25 @@
+configuration:
+  receiver:
+    name: Receiver
+    description: SDR receiver type and settings
+  geocoding:
+    name: Geocoding
+    description: OpenCage geocoding settings for address lookup and map display
+  filters:
+    name: Filters
+    description: >-
+      Message filtering to ignore specific text patterns or capcodes.
+      Text patterns support wildcards (*). Format: comma-separated.
+      Example text: "*test*,*TEST*" | Example capcodes: "123456789,987654321"
+  sensors_enabled:
+    name: Sensors Enabled
+    description: Enable publishing matching P2000 messages to Home Assistant sensors
+  sensors:
+    name: Sensors
+    description: >-
+      Define custom Home Assistant sensors with filters for P2000 messages.
+      All text fields (disciplines, cities, capcodes, priorities, text_contains)
+      support comma-separated values for matching multiple items.
+  log_level:
+    name: Log Level
+    description: Logging verbosity

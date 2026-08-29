@@ -1,0 +1,30 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Meldkamer - S6 Service Runner
+# ==============================================================================
+
+echo "[INFO] Starting Meldkamer..."
+
+# Get timezone from Home Assistant supervisor API
+TIMEZONE=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/info 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('timezone','UTC'))" 2>/dev/null || echo "UTC")
+export TZ="${TIMEZONE}"
+echo "[INFO] Timezone: ${TZ}"
+
+# Read configuration from options.json
+OPTIONS_FILE="/data/options.json"
+
+if [ -f "$OPTIONS_FILE" ]; then
+    LOG_LEVEL=$(python3 -c "import json; print(json.load(open('$OPTIONS_FILE')).get('log_level','info'))" 2>/dev/null || echo "info")
+else
+    echo "[WARN] Options file not found, using defaults"
+    LOG_LEVEL="info"
+fi
+
+echo "[INFO] Log level: ${LOG_LEVEL}"
+
+# Export config as environment variables for Python
+export P2000_LOG_LEVEL="${LOG_LEVEL}"
+
+# Run the Python application from /app
+cd /app
+exec python3 -m src

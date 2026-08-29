@@ -1,0 +1,29 @@
+# Meldkamer - Ruff Configuration
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "SIM108", # use ternary operator (readability preference)
+    "RUF012", # mutable class attributes (dataclass fields)
+]
+
+[lint.per-file-ignores]
+"city_abbreviations.py" = ["E501", "RUF"]  # auto-generated data file
+"abbreviation_import.py" = ["E501"]         # large dict literal
+
+[format]
+quote-style = "double"
+indent-style = "space"
