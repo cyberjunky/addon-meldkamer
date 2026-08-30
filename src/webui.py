@@ -2299,8 +2299,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 .catch(() => {});
         }
 
-        function applyTtsReplacements(text) {
+        function applyTtsReplacements(text, discipline) {
             let result = text;
+            // B1/B2 mean "Brandweer ... spoed" for fire, but an unrelated,
+            // always-non-urgent "besteld vervoer" code for ambulance - consume
+            // them here first so the generic fire-meaning rule below never
+            // gets a literal B1/B2 to match on an ambulance message.
+            if (discipline && /ambulance/i.test(discipline)) {
+                result = result.replace(/\\bB\\s?1\\b/gi, 'Ambulance besteld vervoer, hoogcomplexe zorgvraag');
+                result = result.replace(/\\bB\\s?2\\b/gi, 'Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag');
+            }
             ttsReplacements.forEach(rule => {
                 try {
                     result = result.replace(new RegExp(rule.pattern, 'gi'), rule.replacement || '');
@@ -2324,7 +2332,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             // it into a spoken form, so prefixing it here would speak it twice.
             // speakable_body has any city abbreviation (e.g. "SGRAVH") already
             // swapped for the resolved full name (e.g. "'s-Gravenhage") server-side.
-            const utterance = new SpeechSynthesisUtterance(applyTtsReplacements(msg.speakable_body || msg.body));
+            const utterance = new SpeechSynthesisUtterance(applyTtsReplacements(msg.speakable_body || msg.body, msg.discipline));
             utterance.lang = 'nl-NL';
             speechSynthesis.cancel();  // Newest message takes priority
             speechSynthesis.speak(utterance);
