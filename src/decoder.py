@@ -100,6 +100,7 @@ class Decoder:
             {"pattern": r"\bOvD\b", "replacement": "Officier van Dienst"},
             {"pattern": r"\bPOL\b", "replacement": "Politie"},
             {"pattern": r"\bRAV\b", "replacement": "Regionale ambulancevoorziening"},
+            {"pattern": r"\bBR\b", "replacement": "Brand"},
             # Long standalone numbers (capcodes, other reference numbers) - postal
             # codes are 4 digits and ambulance unit numbers are 5 (e.g. "17341"),
             # so both are left alone; bon/rit/icnum numbers are already stripped

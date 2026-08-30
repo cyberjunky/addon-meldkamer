@@ -2310,6 +2310,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             // following bare "Ambulance" (e.g. from an AMBU rule) so it isn't
             // said twice, regardless of what order the rules above ran in.
             result = result.replace(/\\bAmbulance\\b((?:\\s+(?:met|zonder)\\s+spoed)?)\\s+Ambulance\\b/gi, 'Ambulance$1');
+            // Same issue for Brand - e.g. "(Zeer gr. BR) BR bijeenkomst" both
+            // expand to "Brand", separated by just punctuation/whitespace
+            result = result.replace(/\\bBrand\\b([^\\w]{0,3})Brand\\b\\s*/gi, 'Brand$1');
             return result;
         }
 

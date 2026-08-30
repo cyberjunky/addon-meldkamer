@@ -43,6 +43,7 @@ ABBREVIATIONS = {
     "BOD": "Bureau Operationele Dienst",
     "BOS": "Benzine, olie en smeermiddelen",
     "BOT": "Bedrijfs opvang team / Bijzonder Ondersteuningsteam",
+    "BR": "Brand",
     "BRV": "Brandweervaartuig",
     "BRW": "Brandweer",
     "BRZO": "Besluitrisico Zware Ongevallen",
