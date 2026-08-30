@@ -101,8 +101,10 @@ class Decoder:
             {"pattern": r"\bPOL\b", "replacement": "Politie"},
             {"pattern": r"\bRAV\b", "replacement": "Regionale ambulancevoorziening"},
             # Long standalone numbers (capcodes, other reference numbers) - postal
-            # codes are 4 digits so they're left alone
-            {"pattern": r"\s*\b\d{5,}\b", "replacement": ""},
+            # codes are 4 digits and ambulance unit numbers are 5 (e.g. "17341"),
+            # so both are left alone; bon/rit/icnum numbers are already stripped
+            # above regardless of length
+            {"pattern": r"\s*\b\d{6,}\b", "replacement": ""},
         ]
         imported = database.import_tts_replacements(DEFAULT_TTS_REPLACEMENTS)
         if imported:
