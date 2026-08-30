@@ -2306,8 +2306,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             // them here first so the generic fire-meaning rule below never
             // gets a literal B1/B2 to match on an ambulance message.
             if (discipline && /ambulance/i.test(discipline)) {
-                result = result.replace(/\\bB\\s?1\\b/gi, 'Ambulance besteld vervoer, hoogcomplexe zorgvraag');
-                result = result.replace(/\\bB\\s?2\\b/gi, 'Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag');
+                result = result.replace(/\\bB\\s?1\\b/gi, 'Ambulance besteld vervoer');
+                result = result.replace(/\\bB\\s?2\\b/gi, 'Ambulance besteld vervoer');
             }
             ttsReplacements.forEach(rule => {
                 try {
