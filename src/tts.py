@@ -18,8 +18,8 @@ DEFAULT_TTS_REPLACEMENTS = [
     # allow an optional one since the parser itself sees both forms
     {"pattern": r"\bA\s?1\b", "replacement": "Ambulance met spoed"},
     {"pattern": r"\bA\s?2\b", "replacement": "Ambulance zonder spoed"},
-    {"pattern": r"\bB\s?1\b", "replacement": "Brandweer met spoed"},
-    {"pattern": r"\bB\s?2\b", "replacement": "Brandweer zonder spoed"},
+    {"pattern": r"\bB\s?1\b", "replacement": "Ambulance besteld vervoer"},
+    {"pattern": r"\bB\s?2\b", "replacement": "Ambulance besteld vervoer"},
     {"pattern": r"\bP\s?1\b", "replacement": "Prio 1"},
     {"pattern": r"\bP\s?2\b", "replacement": "Prio 2"},
     # Meldkamer gespreksgroep codes - short spoken forms
