@@ -91,8 +91,9 @@ RUN pip3 install --no-cache-dir --break-system-packages aiohttp paho-mqtt==1.6.1
 COPY rootfs /
 RUN chmod +x /etc/services.d/meldkamer/*
 
-# Copy application code
+# Copy application code, and config.yaml for the add-on version shown in the dashboard
 COPY src /app/src
+COPY config.yaml /app/config.yaml
 
 # Set working directory
 WORKDIR /app
