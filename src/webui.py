@@ -365,6 +365,8 @@ class WebUI:
             "geocoding_enabled": geocoder.enabled,
             "geocode_rate_remaining": geocoder.rate_remaining,
             "geocode_rate_limited": geocoder.rate_limited,
+            "geocode_only_sensor_matches": config.geocode_only_sensor_matches,
+            "geocode_skipped": self.processor.geocode_skipped,
             "sensor_zones": [
                 {
                     "name": s.name,
@@ -2015,6 +2017,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <div class="info-row"><span class="info-label">Status</span><span class="info-value" id="info-status">-</span></div>
                         <div class="info-row"><span class="info-label">Geocoding</span><span class="info-value" id="info-geocoding">-</span></div>
                         <div class="info-row"><span class="info-label">OpenCage quota</span><span class="info-value" id="info-geocode-quota">-</span></div>
+                        <div class="info-row"><span class="info-label">Geocoding skipped</span><span class="info-value" id="info-geocode-skipped">-</span></div>
                     </div>
                 </div>
 
@@ -2950,6 +2953,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             set('geocode-quota', !(stats.geocoding_configured && stats.geocoding_enabled)
                 ? '-'
                 : (stats.geocode_rate_limited ? 'Exhausted - resets at midnight UTC' : stats.geocode_rate_remaining + ' left today'));
+            set('geocode-skipped', !(stats.geocoding_configured && stats.geocoding_enabled && stats.geocode_only_sensor_matches)
+                ? '-'
+                : stats.geocode_skipped + ' (no sensor match)');
             set('places', stats.db_places);
             set('streets', stats.db_streets);
             set('capcodes', stats.db_capcodes);

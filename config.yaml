@@ -50,6 +50,7 @@ options:
   geocoding:
     enabled: false
     opencage_token: ""
+    only_sensor_matches: false
   repeat_window_seconds: 60
   incident_window_minutes: 15
   ha_events: true
@@ -100,6 +101,7 @@ schema:
   geocoding:
     enabled: bool
     opencage_token: password
+    only_sensor_matches: bool?
   repeat_window_seconds: int(0,3600)?
   incident_window_minutes: int(1,240)?
   ha_events: bool?

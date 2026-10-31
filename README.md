@@ -196,6 +196,7 @@ The Info tab shows FLEX frames per minute for the last hour, messages per hour, 
 | ------ | ----------- |
 | `geocoding.enabled` | Enable/disable geocoding |
 | `geocoding.opencage_token` | OpenCage API key for address lookup |
+| `geocoding.only_sensor_matches` | Only call OpenCage for messages that match a sensor (default: `false`). Other messages use cached coordinates, or the city-level position from the Places table — on the map, in `meldkamer_message` events and without a distance from home. Saves OpenCage requests when receiving the whole national network. A zone filter also counts messages up to 2 km outside the zone (and messages whose city has no coordinates), as the street may lie inside it. The Info tab shows how many messages were skipped. |
 
 ### Filters
 

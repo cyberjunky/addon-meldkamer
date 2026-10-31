@@ -82,6 +82,11 @@ class SensorConfig:
     zone: Zone | None = None
 
 
+# A zone filter counts a message as a geocoding candidate when its city-level
+# position is within the zone radius plus this margin: the street may lie closer
+GEOCODE_ZONE_MARGIN_KM = 2.0
+
+
 class SensorManager:
     """Manages P2000 sensors and message filtering."""
 
@@ -108,8 +113,20 @@ class SensorManager:
             logger.debug(f"Message matched sensor: {sensor.entity_id}")
         return matching
 
-    def matches(self, msg: P2000Message, sensor: SensorConfig) -> bool:
-        """Check if message matches all filter criteria (AND logic)."""
+    def is_geocode_candidate(self, msg: P2000Message) -> bool:
+        """Whether a sensor could match the message once it has street-level coordinates.
+
+        msg holds city-level coordinates (or none): zone filters get a margin, and
+        an unknown position counts as a candidate.
+        """
+        return any(self.matches(msg, sensor, GEOCODE_ZONE_MARGIN_KM) for sensor in self.sensors)
+
+    def matches(self, msg: P2000Message, sensor: SensorConfig, zone_margin_km: float | None = None) -> bool:
+        """Check if message matches all filter criteria (AND logic).
+
+        With zone_margin_km, the zone filter accepts messages up to that far
+        outside the zone, or with an unknown position.
+        """
         filters = sensor.filters
 
         # Discipline filter (msg.discipline may hold multiple, ", "-joined disciplines)
@@ -154,7 +171,10 @@ class SensorManager:
         # Zone filter: inside the zone's radius (never matches until the zone is read from HA)
         if filters.zone:
             distance = self.zone_distance(msg, sensor)
-            if distance is None or distance > sensor.zone.radius_km:
+            if zone_margin_km is None:
+                if distance is None or distance > sensor.zone.radius_km:
+                    return False
+            elif sensor.zone is None or (distance is not None and distance > sensor.zone.radius_km + zone_margin_km):
                 return False
 
         # Text contains filter (case-insensitive)

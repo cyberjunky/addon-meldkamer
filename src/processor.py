@@ -1,6 +1,7 @@
 """Turns decoded FLEX lines into enriched, stored and published P2000 messages."""
 
 import asyncio
+import copy
 import fnmatch
 import logging
 import time
@@ -43,6 +44,10 @@ class MessageProcessor:
 
         # Only enable geocoder if opencage is enabled and token is provided
         self.geocoder = Geocoder(config.opencage_token if config.opencage_enabled else "", database)
+        # Messages not sent to OpenCage because no sensor matches them (only_sensor_matches)
+        self.geocode_skipped = 0
+        if config.geocode_only_sensor_matches and not sensor_manager.sensors:
+            logger.warning("geocoding.only_sensor_matches is set but no sensors are configured - geocoding everything")
 
         self.home: Zone | None = None
         self.incidents = IncidentTracker(config.incident_window_minutes)
@@ -130,9 +135,9 @@ class MessageProcessor:
             return
 
         geocoded = await self._locate(msg)
-        # Only for a street: a message naming just a city is placed at the city
-        # centre, so its distance from home would be that of the centre
-        if self.home and msg.street:
+        # Only for a street-level position: a message placed at the city centre
+        # (no street, or the street wasn't geocoded) would get the centre's distance
+        if self.home and msg.location_accuracy == "street":
             msg.distance_km = distance_km(msg, self.home.latitude, self.home.longitude)
         msg.tts = self.speech.speak(msg)
         incident, escalation = self.incidents.assign(msg)
@@ -165,13 +170,17 @@ class MessageProcessor:
         """Set the message's coordinates. Returns whether OpenCage geocoded it."""
         geocoded = False
         if msg.address and self.geocoder.enabled:
+            cache_only = self._geocode_cache_only(msg)
             # The OpenCage request is synchronous - run it off the event loop
-            geo = await asyncio.to_thread(self.geocoder.geocode, msg.address)
+            geo = await asyncio.to_thread(self.geocoder.geocode, msg.address, cache_only)
             geocoded = self.geocoder.geocoded
             if geo:
                 msg.latitude = geo["latitude"]
                 msg.longitude = geo["longitude"]
                 msg.mapurl = geo["mapurl"]
+            elif cache_only:
+                self.geocode_skipped += 1
+                logger.debug(f"Geocoding skipped (no sensor match): {msg.address}")
 
         # City-level coordinates from the local places database, so the map and
         # auto-focus also work with geocoding disabled or failed lookups
@@ -182,3 +191,15 @@ class MessageProcessor:
                 msg.longitude = coords["longitude"]
                 msg.location_accuracy = "city"
         return geocoded
+
+    def _geocode_cache_only(self, msg: P2000Message) -> bool:
+        """Whether to skip OpenCage for the message: only_sensor_matches is set and no sensor can match it."""
+        if not self.config.geocode_only_sensor_matches or not self.sensor_manager.sensors:
+            return False
+        # Match the sensors on the city-level position the message gets without OpenCage
+        probe = copy.copy(msg)
+        coords = self.database.get_place_coordinates(msg.city) if msg.city else None
+        if coords:
+            probe.latitude = coords["latitude"]
+            probe.longitude = coords["longitude"]
+        return not self.sensor_manager.is_geocode_candidate(probe)

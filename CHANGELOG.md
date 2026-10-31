@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- New `geocoding.only_sensor_matches` option (default off): only call OpenCage for messages that match a sensor, so a receiver hearing the whole country doesn't use up the free tier on messages you don't follow. Other messages use cached coordinates or the city-level position from the Places table. Zone filters also count messages up to 2 km outside the zone, as the street may lie inside it. The Info tab shows how many messages skipped OpenCage (#27).
+- "km from home" is now also left out for a message with a street that couldn't be geocoded (it was placed at the city centre).
+
 ## 1.2.8
 
 - "km from home" is only shown for messages with a street. A message naming just a city is placed at the city centre, so its distance was that of the centre (e.g. "3.9 km from home" for any Amsterdam message). Also for the `distance_km` attribute, and for messages already in the history.
