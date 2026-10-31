@@ -1,13 +1,28 @@
 # Changelog
 
-## Unreleased
+## 1.2.9
 
-- Places get their position (the town's centre, from PDOK) from "Import All Places" and the Places/Streets "Import BAG". Before, both imports left places without coordinates, so a message without a street (or with a street that couldn't be placed) only got a map pin when you had entered the place's position yourself, and `only_sensor_matches` couldn't tell whether such a message was near a zone. **Run "Import All Places" once** to fill in all places.
-- Street positions from the BAG import: the Streets import now also stores each street's position (its centre, from PDOK), and messages with a known street are placed on it without an OpenCage request. OpenCage is only used for streets that aren't in the table, so street-level map pins work without an OpenCage account too. **Run the Streets "Import BAG" again for your provinces** to add positions to streets imported before; your existing streets and edits are kept (#26).
+**After updating**, in Settings:
+1. Places → **Import All Places**, to give every town its centre position.
+2. Streets → **Import BAG** for each province you imported before, to add street positions. Your streets and edits are kept.
+3. Texts → **Import Texts** (this resets built-in texts you edited yourself; or just edit `B1` and `B2`), and in TTS Replacements change the `B1`/`B2` rules to "Ambulance besteld vervoer" (or delete them and restart the add-on), to get the corrected B1/B2 meaning below.
+
+### Locations
+- Street positions from the BAG import: the Streets import now also stores each street's position (its centre, from PDOK), and messages with a known street are placed on it without an OpenCage request. OpenCage is only used for streets that aren't in the table, so street-level map pins work without an OpenCage account too (#26).
+- Places get their position (the town's centre, from PDOK) from "Import All Places" and "Import BAG". Before, both imports left places without coordinates, so a message without a street (or with a street that couldn't be placed) only got a map pin when you had entered the place's position yourself.
 - Streets have `latitude` and `longitude`: shown on the Streets page, editable in the add/edit form, and in CSV export and import (optional columns; an import with coordinates also fills them in for streets you already have). Coordinates outside the Netherlands are rejected.
-- New `geocoding.only_sensor_matches` option (default off): only call OpenCage for messages that match a sensor, so a receiver hearing the whole country doesn't use up the free tier on messages you don't follow. Other messages use cached coordinates or the city-level position from the Places table. Zone filters also count messages up to 2 km outside the zone, as the street may lie inside it. The Info tab shows how many messages skipped OpenCage (#27).
-- "km from home" is now also left out for a message with a street that couldn't be geocoded (it was placed at the city centre).
+- New `geocoding.only_sensor_matches` option (default off): only call OpenCage for messages that match a sensor, so a receiver hearing the whole country doesn't use up the free tier on messages you don't follow. Other messages use cached coordinates or the town centre. Zone filters also count messages up to 2 km outside the zone, as the street may lie inside it. The Info tab shows how many messages skipped OpenCage (#27).
+- "km from home" is now also left out for a message with a street that couldn't be placed (it was put at the town centre).
+
+### Fixes
+- BAG import for Friesland failed with "No woonplaatsen found": PDOK names the province "Fryslân" (#29).
+- B1/B2 mean ambulance "besteld vervoer" (planned transport), not fire service with/without urgency, in the abbreviation explanation and the spoken text (#28, thanks @SvenKortekaas). Existing installs keep their old texts until updated, see above.
+
+### Dashboard
 - Phone layout: on screens up to 700 px wide the top bar wraps into two rows (view tabs; receiver status, messages per hour, sensor filter and the sound/speech/map/theme toggles), so the sensor filter and toggles are no longer pushed off-screen. Settings and Info show as icons; the clock is hidden (#25).
+
+### Documentation
+- README: "Getting the most out of it" (which imports to run and what each one enables) and "How it works" (decoding, parsing, the location lookup order, incidents and output).
 
 ## 1.2.8
 
