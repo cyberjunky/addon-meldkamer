@@ -44,7 +44,10 @@ async def main() -> int:
     logger.info(f"Network: {config.network_name}")
     logger.info(f"Frequency: {config.frequency}")
     logger.info(f"Decoder: {config.decoder}")
-    logger.info(f"Geocoding: {'enabled' if config.opencage_enabled else 'disabled'}")
+    logger.info(
+        f"Geocoding: {'enabled' if config.opencage_enabled else 'disabled'}"
+        f"{' (only sensor matches)' if config.opencage_enabled and config.geocode_only_sensor_matches else ''}"
+    )
 
     database = Database()
     db_stats = database.get_stats()

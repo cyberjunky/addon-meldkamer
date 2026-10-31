@@ -9,7 +9,11 @@ configuration:
       active one when no backup is set.
   geocoding:
     name: Geocoding
-    description: OpenCage geocoding settings for address lookup and map display
+    description: >-
+      OpenCage geocoding settings for address lookup and map display.
+      only_sensor_matches only calls OpenCage for messages that match a
+      sensor; other messages use cached or city-level coordinates from the
+      places table. Saves OpenCage requests.
   repeat_window_seconds:
     name: Repeat window (seconds)
     description: >-

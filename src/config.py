@@ -62,6 +62,9 @@ class Config:
     announce_media_players: list[str] = field(default_factory=list)
     announce_language: str = ""
 
+    # Only call OpenCage for messages a sensor can match; others use the cache or city-level coordinates
+    geocode_only_sensor_matches: bool = False
+
     # Sensor publishing via HA REST API
     sensors_enabled: bool = False
 
@@ -126,6 +129,7 @@ class Config:
             network_port=receiver.get("network_port", 1234),
             opencage_enabled=geocoding.get("enabled", False),
             opencage_token=geocoding.get("opencage_token", ""),
+            geocode_only_sensor_matches=geocoding.get("only_sensor_matches", False),
             log_level=data.get("log_level", "info"),
             gain=receiver.get("sdr_gain", 0),
             ppm_correction=receiver.get("ppm_correction", 0),
