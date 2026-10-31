@@ -32,6 +32,10 @@ PROVINCES = [
     "Zuid-Holland",
 ]
 
+# PDOK uses the official name for some provinces
+PDOK_PROVINCE_NAMES = {"Friesland": "Fryslân"}
+_FROM_PDOK_PROVINCE = {v: k for k, v in PDOK_PROVINCE_NAMES.items()}
+
 LOCATIE_BASE = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free"
 PDOK_ROWS = 100  # Max rows per Locatieserver request
 PDOK_MAX_START = 10000  # Locatieserver rejects start > 10000
@@ -169,6 +173,7 @@ def fetch_all_woonplaatsen() -> list[dict[str, str]]:
         name = doc.get("woonplaatsnaam", "").strip()
         gemeente = doc.get("gemeentenaam", "").strip()
         province = doc.get("provincienaam", "").strip()
+        province = _FROM_PDOK_PROVINCE.get(province, province)
 
         if name and len(name) >= 2:
             woonplaatsen.append({"name": name, "gemeente": gemeente, "province": province})
@@ -277,7 +282,11 @@ def _fetch_woonplaatsen_for_province(province: str) -> list[str]:
         _import_progress["status"] = f"Loading woonplaatsen for {province}: {fetched}/{total}..."
 
     docs, complete = _pdok_search(
-        {"q": "type:woonplaats", "fq": f"provincienaam:{_solr_quote(province)}", "fl": "woonplaatsnaam"},
+        {
+            "q": "type:woonplaats",
+            "fq": f"provincienaam:{_solr_quote(PDOK_PROVINCE_NAMES.get(province, province))}",
+            "fl": "woonplaatsnaam",
+        },
         f"woonplaatsen of {province}",
         on_page,
     )
