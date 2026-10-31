@@ -740,9 +740,9 @@ class WebUI:
         return web.json_response(result)
 
     async def _handle_list_provinces(self, request: web.Request) -> web.Response:
-        """List available Dutch provinces for BAG import."""
+        """List available Dutch provinces for BAG import, and the streets already imported per province."""
         provinces = bag_import.get_provinces()
-        return web.json_response({"provinces": provinces})
+        return web.json_response({"provinces": provinces, "imported": self.database.street_provinces()})
 
     async def _handle_import_province(self, request: web.Request) -> web.Response:
         """Start BAG import for a specific Dutch province in background thread."""
@@ -1893,6 +1893,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .db-card-status.empty { color: var(--prio-2); border: 1px solid currentColor; }
         .db-card-desc { font-size: 13px; color: var(--secondary-text-color); line-height: 1.5; }
         .db-card-count { font-size: 12.5px; color: var(--secondary-text-color); }
+        .db-provinces { display: flex; flex-wrap: wrap; gap: 4px; }
+        .db-provinces:empty { display: none; }
+        .db-province { font-size: 11.5px; padding: 1px 7px; border-radius: 3px; border: var(--card-border); color: var(--secondary-text-color); }
+        .db-province.stale { color: var(--prio-2); border-color: currentColor; }
         .db-card-count span { font-family: var(--mono); color: var(--primary-text-color); font-size: 15px; font-weight: 500; }
         .db-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
 
@@ -2189,6 +2193,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 </div>
                                 <div class="db-card-desc">Official BAG street names and positions per province. Places street addresses on the map without OpenCage.</div>
                                 <div class="db-card-count"><span id="db-count-streets">0</span> rows</div>
+                                <div class="db-provinces" id="db-provinces-streets" aria-label="Imported provinces"></div>
                                 <div class="db-card-actions">
                                     <button class="btn btn-primary" onclick="dbImportBAG(this)">Import BAG</button>
                                     <button class="btn" onclick="dbOpenTable('streets')">Manage</button>
@@ -3962,6 +3967,29 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     })
                     .catch(() => {});
             });
+            dbLoadProvinces();
+        }
+
+        // A province whose streets mostly lack a position was imported before
+        // street positions existed: running its BAG import again adds them
+        const isStaleProvince = info => info.located < info.streets * 0.9;
+
+        function dbLoadProvinces() {
+            fetch(`${basePath}api/db/bag/provinces`)
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('db-provinces-streets');
+                    if (!el) return;
+                    const imported = data.imported || {};
+                    el.innerHTML = Object.keys(imported).sort().map(name => {
+                        const info = imported[name];
+                        const stale = isStaleProvince(info);
+                        const title = `${info.streets.toLocaleString()} streets, ${info.located.toLocaleString()} with a position`
+                            + (stale ? ' - run Import BAG again for this province to add positions' : '');
+                        return `<span class="db-province${stale ? ' stale' : ''}" title="${escapeHtml(title)}">${stale ? '⚠ ' : ''}${escapeHtml(name)}</span>`;
+                    }).join('');
+                })
+                .catch(() => {});
         }
 
         function dbOpenTable(table) {
@@ -4247,16 +4275,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 .then(r => r.json())
                 .then(data => {
                     const provinces = data.provinces || [];
+                    const imported = data.imported || {};
+                    const provinceLabel = p => {
+                        const info = imported[p];
+                        if (!info) return p;
+                        return `${p} - imported, ${info.streets.toLocaleString()} streets` + (isStaleProvince(info) ? ', needs positions' : '');
+                    };
                     const overlay = openModal({
                         title: 'Import BAG address data',
                         bodyHTML: `
                             <div class="form-field">
                                 <label>Province</label>
                                 <select class="input" data-province style="width:100%">
-                                    ${provinces.map(p => `<option>${escapeHtml(p)}</option>`).join('')}
+                                    ${provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(provinceLabel(p))}</option>`).join('')}
                                 </select>
                             </div>
-                            <div class="panel-sub">Imports cities and streets for the selected province. This may take 5-10 minutes for large provinces.</div>`,
+                            <div class="panel-sub">Imports cities and streets for the selected province. This may take 5-10 minutes for large provinces. Importing a province again adds what's new and keeps your own edits.</div>`,
                         footHTML: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-start>Start import</button>`
                     });
                     overlay.querySelector('[data-start]').addEventListener('click', () => {

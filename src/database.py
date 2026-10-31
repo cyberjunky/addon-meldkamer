@@ -991,6 +991,17 @@ class Database:
         except sqlite3.Error:
             return False
 
+    def street_provinces(self) -> dict[str, dict[str, int]]:
+        """Streets per province (via their place): {province: {"streets": n, "located": n with a position}}."""
+        try:
+            rows = self.cursor.execute(
+                "SELECT p.province, COUNT(*), COUNT(s.latitude) FROM streets s JOIN places p ON s.city_id = p.id "
+                "WHERE p.province IS NOT NULL AND p.province != '' GROUP BY p.province"
+            ).fetchall()
+        except sqlite3.Error:
+            return {}
+        return {row[0]: {"streets": row[1], "located": row[2]} for row in rows}
+
     def get_street_coordinates(self, street: str, city: str) -> dict[str, float] | None:
         """Coordinates of a street in a city from the streets table (BAG centroid or your own), or None."""
         name = self.find_city_name(city)
