@@ -167,7 +167,9 @@ def fetch_all_woonplaatsen() -> list[dict[str, str]]:
         _import_progress["percent"] = min(95, int(fetched / max(total, 1) * 100))
 
     docs, complete = _pdok_search(
-        {"q": "type:woonplaats", "fl": "woonplaatsnaam,gemeentenaam,provincienaam"}, "all woonplaatsen", on_page
+        {"q": "type:woonplaats", "fl": "woonplaatsnaam,gemeentenaam,provincienaam,centroide_ll"},
+        "all woonplaatsen",
+        on_page,
     )
     if not complete:
         _warn(f"Woonplaatsen list is incomplete ({len(docs)} loaded)")
@@ -178,9 +180,12 @@ def fetch_all_woonplaatsen() -> list[dict[str, str]]:
         gemeente = doc.get("gemeentenaam", "").strip()
         province = doc.get("provincienaam", "").strip()
         province = _FROM_PDOK_PROVINCE.get(province, province)
+        latitude, longitude = _parse_point(doc.get("centroide_ll", ""))
 
         if name and len(name) >= 2:
-            woonplaatsen.append({"name": name, "gemeente": gemeente, "province": province})
+            woonplaatsen.append(
+                {"name": name, "gemeente": gemeente, "province": province, "latitude": latitude, "longitude": longitude}
+            )
 
     logger.info(f"Fetched {len(woonplaatsen)} woonplaatsen from PDOK")
     return woonplaatsen
@@ -211,7 +216,13 @@ def import_all_places(database) -> int:
         # Upsert keeps existing ids (streets link to them) and coordinates
         imported = database.upsert_places(
             [
-                {"city": wp["name"], "abbreviation": get_abbreviation(wp["name"]), "province": wp["province"]}
+                {
+                    "city": wp["name"],
+                    "abbreviation": get_abbreviation(wp["name"]),
+                    "province": wp["province"],
+                    "latitude": wp["latitude"],
+                    "longitude": wp["longitude"],
+                }
                 for wp in woonplaatsen
             ]
         )
@@ -288,9 +299,11 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
     ]
 
 
-def _fetch_woonplaatsen_for_province(province: str) -> list[str]:
+def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | None, float | None]]:
     """
     Fetch all woonplaatsen for a province via the PDOK Locatieserver.
+
+    Returns {woonplaats: (latitude, longitude)} of its centroid, sorted by name.
 
     Replaces the old, fragile CBS OData lookup with the same PDOK API that
     the places import already uses successfully.
@@ -305,7 +318,7 @@ def _fetch_woonplaatsen_for_province(province: str) -> list[str]:
         {
             "q": "type:woonplaats",
             "fq": f"provincienaam:{_solr_quote(PDOK_PROVINCE_NAMES.get(province, province))}",
-            "fl": "woonplaatsnaam",
+            "fl": "woonplaatsnaam,centroide_ll",
         },
         f"woonplaatsen of {province}",
         on_page,
@@ -313,13 +326,13 @@ def _fetch_woonplaatsen_for_province(province: str) -> list[str]:
     if not complete:
         _warn(f"Woonplaatsen list for {province} is incomplete ({len(docs)} loaded)")
 
-    woonplaatsen = set()
+    woonplaatsen = {}
     for doc in docs:
         name = doc.get("woonplaatsnaam", "").strip()
         if name and len(name) >= 2:
-            woonplaatsen.add(name)
+            woonplaatsen.setdefault(name, _parse_point(doc.get("centroide_ll", "")))
 
-    result = sorted(woonplaatsen)
+    result = dict(sorted(woonplaatsen.items()))
     logger.info(f"Found {len(result)} woonplaatsen in {province}")
     return result
 
@@ -356,7 +369,7 @@ def import_province_data(province: str, database) -> dict[str, Any]:
         logger.info(f"Importing {len(woonplaatsen)} woonplaatsen for {province}")
 
         # Process each woonplaats
-        for i, woonplaats in enumerate(woonplaatsen):
+        for i, (woonplaats, (latitude, longitude)) in enumerate(woonplaatsen.items()):
             # Update progress
             percent = int((i / len(woonplaatsen)) * 100)
             _import_progress.update(
@@ -371,7 +384,11 @@ def import_province_data(province: str, database) -> dict[str, Any]:
             # Add woonplaats to database (fills in the province of existing places)
             try:
                 city_id, created = database.upsert_place(
-                    city=woonplaats, abbreviation=get_abbreviation(woonplaats), province=province
+                    city=woonplaats,
+                    abbreviation=get_abbreviation(woonplaats),
+                    province=province,
+                    latitude=latitude,
+                    longitude=longitude,
                 )
                 if created:
                     cities_added += 1
