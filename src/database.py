@@ -83,6 +83,17 @@ class _LockedConnection:
             self._conn.close()
 
 
+def _nl_coordinates(latitude, longitude) -> tuple[float | None, float | None]:
+    """Coordinates as floats when both are set and inside the Netherlands, else (None, None)."""
+    try:
+        lat, lon = float(latitude), float(longitude)
+    except (TypeError, ValueError):
+        return None, None
+    if 50.75 <= lat <= 53.55 and 3.36 <= lon <= 7.21:
+        return lat, lon
+    return None, None
+
+
 class Database:
     """SQLite database for capcodes, places, streets, and geocode cache."""
 
@@ -103,6 +114,8 @@ class Database:
         street TEXT NOT NULL,
         city_id INTEGER,
         postalcode TEXT,
+        latitude REAL,
+        longitude REAL,
         FOREIGN KEY (city_id) REFERENCES places(id)
     );
     CREATE INDEX IF NOT EXISTS idx_streets_street ON streets(street);
@@ -406,6 +419,8 @@ class Database:
                 ("places", "longitude", "REAL"),
                 # Streets table migrations
                 ("streets", "postalcode", "TEXT"),
+                ("streets", "latitude", "REAL"),
+                ("streets", "longitude", "REAL"),
                 # Messages table migrations
                 ("messages", "distance_km", "REAL"),
                 ("messages", "incident_id", "TEXT"),
@@ -431,7 +446,7 @@ class Database:
             # that predate the id column (rowid is kept as id so existing
             # streets.city_id links survive)
             self._rebuild_table_with_id("places", ["city", "abbreviation", "province", "latitude", "longitude"])
-            self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode"])
+            self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
             self._ensure_unique_streets()
         except sqlite3.Error as e:
             logger.error(f"Schema migration failed: {e}")
@@ -876,7 +891,8 @@ class Database:
             total = self.cursor.fetchone()[0]
 
             self.cursor.execute(
-                f"SELECT s.id, s.street, s.postalcode, s.city_id, p.city as city_name FROM streets s "
+                f"SELECT s.id, s.street, s.postalcode, s.city_id, p.city as city_name, s.latitude, s.longitude "
+                f"FROM streets s "
                 f"LEFT JOIN places p ON s.city_id = p.id {where_sql} "
                 f"ORDER BY s.street LIMIT ? OFFSET ?",
                 [*params, per_page, offset],
@@ -887,7 +903,7 @@ class Database:
             total = self.cursor.fetchone()[0]
 
             self.cursor.execute(
-                f"SELECT id, street, postalcode, city_id, '' as city_name FROM streets s "
+                f"SELECT id, street, postalcode, city_id, '' as city_name, latitude, longitude FROM streets s "
                 f"{where_sql} ORDER BY street LIMIT ? OFFSET ?",
                 [*params, per_page, offset],
             )
@@ -895,12 +911,23 @@ class Database:
         rows = [dict(row) for row in self.cursor.fetchall()]
         return {"items": rows, "total": total, "page": page, "per_page": per_page}
 
-    def add_street(self, street: str, city_id: int | None = None, postalcode: str = "") -> bool:
-        """Add a new street. Returns False if it already exists for this city."""
+    def add_street(
+        self,
+        street: str,
+        city_id: int | None = None,
+        postalcode: str = "",
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> bool:
+        """Add a new street. Returns False if it already exists for this city or has invalid coordinates."""
+        given = latitude is not None or longitude is not None
+        latitude, longitude = _nl_coordinates(latitude, longitude)
+        if given and latitude is None:
+            return False
         try:
             self.cursor.execute(
-                "INSERT OR IGNORE INTO streets (street, city_id, postalcode) VALUES (?, ?, ?)",
-                (street, city_id, postalcode),
+                "INSERT OR IGNORE INTO streets (street, city_id, postalcode, latitude, longitude) VALUES (?, ?, ?, ?, ?)",
+                (street, city_id, postalcode, latitude, longitude),
             )
             added = self.cursor.rowcount > 0
             self._commit()
@@ -910,36 +937,78 @@ class Database:
             return False
 
     def add_streets(self, city_id: int | None, streets: list[dict[str, str]]) -> int:
-        """Bulk add streets (dicts with street/postcode) for one city in one transaction.
+        """Bulk add streets (dicts with street/postcode/latitude/longitude) for one city in one transaction.
 
-        Existing streets are kept; an empty postal code is filled in when the
-        new data has one. Returns the number of newly added streets.
+        Existing streets are kept; an empty postal code or missing coordinates
+        are filled in when the new data has them. Returns the number of newly
+        added streets.
         """
-        rows = [(s["street"], city_id, s.get("postcode", "")) for s in streets if s.get("street")]
+        rows = [
+            (s["street"], city_id, s.get("postcode", ""), *_nl_coordinates(s.get("latitude"), s.get("longitude")))
+            for s in streets
+            if s.get("street")
+        ]
         with self._transaction() as conn:
             added = conn.executemany(
-                "INSERT OR IGNORE INTO streets (street, city_id, postalcode) VALUES (?, ?, ?)", rows
+                "INSERT OR IGNORE INTO streets (street, city_id, postalcode, latitude, longitude) "
+                "VALUES (?, ?, ?, ?, ?)",
+                rows,
             ).rowcount
             conn.executemany(
                 "UPDATE streets SET postalcode = ? WHERE street = ? AND city_id IS ? "
                 "AND (postalcode IS NULL OR postalcode = '')",
-                [(pc, street, cid) for street, cid, pc in rows if pc],
+                [(pc, street, cid) for street, cid, pc, _, _ in rows if pc],
+            )
+            conn.executemany(
+                "UPDATE streets SET latitude = ?, longitude = ? WHERE street = ? AND city_id IS ? AND latitude IS NULL",
+                [(lat, lon, street, cid) for street, cid, _, lat, lon in rows if lat is not None],
             )
         self.invalidate_text_caches()
         return added
 
-    def update_street(self, street_id: int, street: str, city_id: int | None = None, postalcode: str = "") -> bool:
-        """Update an existing street."""
+    def update_street(
+        self,
+        street_id: int,
+        street: str,
+        city_id: int | None = None,
+        postalcode: str = "",
+        latitude: float | None = None,
+        longitude: float | None = None,
+    ) -> bool:
+        """Update an existing street. Returns False for coordinates that are incomplete or outside the Netherlands."""
+        given = latitude is not None or longitude is not None
+        latitude, longitude = _nl_coordinates(latitude, longitude)
+        if given and latitude is None:
+            return False
         try:
             self.cursor.execute(
-                "UPDATE streets SET street=?, city_id=?, postalcode=? WHERE id=?",
-                (street, city_id, postalcode, street_id),
+                "UPDATE streets SET street=?, city_id=?, postalcode=?, latitude=?, longitude=? WHERE id=?",
+                (street, city_id, postalcode, latitude, longitude, street_id),
             )
             self._commit()
             self.invalidate_text_caches()
             return self.cursor.rowcount > 0
         except sqlite3.Error:
             return False
+
+    def get_street_coordinates(self, street: str, city: str) -> dict[str, float] | None:
+        """Coordinates of a street in a city from the streets table (BAG centroid or your own), or None."""
+        name = self.find_city_name(city)
+        if not name:
+            return None
+        try:
+            self.cursor.execute(
+                "SELECT s.latitude, s.longitude FROM streets s JOIN places p ON s.city_id = p.id "
+                "WHERE p.city = ? AND s.street = ? COLLATE NOCASE "
+                "AND s.latitude IS NOT NULL AND s.longitude IS NOT NULL LIMIT 1",
+                (name, street),
+            )
+            row = self.cursor.fetchone()
+            if row:
+                return {"latitude": float(row[0]), "longitude": float(row[1])}
+        except (sqlite3.Error, TypeError, ValueError):
+            pass
+        return None
 
     def delete_street(self, street_id: int) -> bool:
         """Delete a street."""
@@ -1216,7 +1285,7 @@ class Database:
         """Export all streets to CSV string."""
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["street", "city", "postalcode"])
+        writer.writerow(["street", "city", "postalcode", "latitude", "longitude"])
 
         # Check if places has id for JOIN
         try:
@@ -1225,11 +1294,11 @@ class Database:
 
             if has_id:
                 self.cursor.execute(
-                    "SELECT s.street, p.city, s.postalcode FROM streets s "
+                    "SELECT s.street, p.city, s.postalcode, s.latitude, s.longitude FROM streets s "
                     "LEFT JOIN places p ON s.city_id = p.id ORDER BY s.street"
                 )
             else:
-                self.cursor.execute("SELECT street, '', postalcode FROM streets ORDER BY street")
+                self.cursor.execute("SELECT street, '', postalcode, latitude, longitude FROM streets ORDER BY street")
 
             for row in self.cursor.fetchall():
                 writer.writerow(list(row))
@@ -1410,8 +1479,10 @@ class Database:
     def import_streets_csv(self, csv_content: str, replace: bool = False) -> dict[str, int]:
         """Import streets from CSV. Returns counts of imported/skipped.
 
-        Streets already present for the same city are skipped. Raises
-        ValueError for invalid CSV; the table is left untouched then.
+        Streets already present for the same city are skipped, unless the CSV
+        has coordinates for them (latitude/longitude columns are optional):
+        those are updated. Coordinates outside the Netherlands are ignored.
+        Raises ValueError for invalid CSV; the table is left untouched then.
         """
         rows = self._read_csv(csv_content, ("street",))
         imported = 0
@@ -1424,6 +1495,7 @@ class Database:
                 if not row.get("street"):
                     skipped += 1
                     continue
+                lat, lon = _nl_coordinates(row.get("latitude"), row.get("longitude"))
                 try:
                     # Look up city_id
                     city_id = None
@@ -1432,9 +1504,15 @@ class Database:
                         city_id = city_row[0] if city_row else None
 
                     cur = conn.execute(
-                        "INSERT OR IGNORE INTO streets (street, city_id, postalcode) VALUES (?, ?, ?)",
-                        (row["street"], city_id, row.get("postalcode", "")),
+                        "INSERT OR IGNORE INTO streets (street, city_id, postalcode, latitude, longitude) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (row["street"], city_id, row.get("postalcode", ""), lat, lon),
                     )
+                    if cur.rowcount == 0 and lat is not None:
+                        cur = conn.execute(
+                            "UPDATE streets SET latitude = ?, longitude = ? WHERE street = ? AND city_id IS ?",
+                            (lat, lon, row["street"], city_id),
+                        )
                     if cur.rowcount > 0:
                         imported += 1
                     else:
