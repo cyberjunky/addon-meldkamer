@@ -39,7 +39,7 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 - 📡 **SDR Support** — RTL-SDR, HackRF One, SoapySDR devices, or network streaming
 - 🗺️ **Interactive Dashboard** — Live map, statistics, tabbed interface
 - 🎯 **Sensor Filter Toggle** — Narrow the live dashboard feed to a configured sensor's criteria, or view everything
-- 📍 **Geocoding** — Automatic address to coordinates (OpenCage), with city-level fallback when disabled
+- 📍 **Locations** — Street-level map pins from the free BAG street data, OpenCage only for streets that aren't in it (optional), and the town centre as fallback
 - 🏠 **Home Assistant Sensors** — Auto-create sensors with custom filters via REST API or MQTT, including filters on Home Assistant zones
 - ⚡ **Home Assistant Events** — `meldkamer_message` for every message and `meldkamer_incident_escalated` when an incident grows, ready to use as automation triggers
 - 🩺 **Receiver Health** — `binary_sensor.meldkamer_receiver_online` and `sensor.meldkamer_messages_per_hour`, so a dead SDR stick or `rtl_tcp` link doesn't go unnoticed
@@ -63,6 +63,43 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 2. Find **Meldkamer** in the Add-on Store and click **Install**.
 3. Plug in your SDR receiver, review the **Configuration** tab, and click **Start**.
 4. Open **Meldkamer** from the sidebar.
+5. Fill the database (next section): without it, messages are decoded but have no discipline, town, street or map pin.
+
+## Getting the most out of it
+
+A fresh install only knows the P2000 abbreviations. Everything else the dashboard shows comes from reference data you import once from **Settings**. All imports use free public data, no account needed:
+
+| Step | Where | What it gives you |
+|------|-------|-------------------|
+| 1. **Import capcodes** | Settings → Capcodes → *Import Bommel* | Discipline (Brandweer/Ambulance/Politie), region and the units alerted, for every message. Needed for the Lanes view, discipline colours, vehicle types and for sensors that filter on `disciplines` or `region`. Also fills the Vehicles table from the capcode descriptions |
+| 2. **Import all places** | Settings → Places → *Import All Places* | All ~2,500 Dutch towns with their centre position. Needed to recognise the town in a message, for `cities` sensor filters, and for a map pin at the town centre when no street is known |
+| 3. **Import streets** for your province(s) | Settings → Streets → *Import BAG* (per province, 5–10 min for a large one) | Official street names with their position. A message naming one of these streets gets a street-level map pin, distance from home and an exact zone match, **without OpenCage**. Import every province you care about; streets outside them fall back to OpenCage or the town centre |
+| 4. *(optional)* **OpenCage** | Add-on configuration → `geocoding` | Street-level positions for streets that aren't imported. The free tier is 2,500 requests a day; receiving the whole country uses more, so set `only_sensor_matches: true` to only look up messages that match one of your sensors |
+| 5. **Sensors and home** | Add-on configuration → `sensors`; Home Assistant's home zone | Filtered Home Assistant sensors, events and announcements; distance from home on each message |
+
+Re-run *Import All Places* and *Import BAG* after updates that add data to them (the changelog says when). Re-imports keep your own edits to streets; empty values never wipe stored data.
+
+## How it works
+
+1. **Decoding** — `rtl_fm` (RTL-SDR) or `rx_fm` (HackRF, SoapySDR, `rtl_tcp`) tunes to 169.65 MHz and pipes the audio into `multimon-ng`, which decodes the FLEX pager protocol into one line per message: time, capcodes and text.
+2. **Filtering** — Messages matching an *Ignore Text* pattern, or whose capcodes are all on the *Ignore Capcodes* list, are dropped. An identical text received again within `repeat_window_seconds` counts as a repeat of the first message instead of a new one.
+3. **Parsing** — From the text:
+   - **Priority** from codes such as `A1`, `A2`, `B1`, `P 1`, `PRIO 2`.
+   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the built-in list of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). If that finds nothing, the whole text is searched.
+   - **Street**: the remaining text is matched against the Streets table (longest names first, whole words only), then against address patterns with a postcode, then against common street-name endings (`-straat`, `-weg`, `-laan`, …).
+   - **Capcodes** are looked up in the Capcodes table for the discipline, region, location and the names of the alerted units.
+   - **Abbreviations** are explained from the Texts table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
+4. **Location** — The first source that knows the address wins:
+   1. the street's position in the **Streets** table (street + town, from the BAG import or entered by you);
+   2. the **geocode cache** of earlier OpenCage results;
+   3. **OpenCage**, when `geocoding` is enabled (with `only_sensor_matches`, only for messages a sensor can match);
+   4. the town centre from the **Places** table (marked as city-level).
+
+   Distance from home is only given for street-level positions, so a message placed at a town centre doesn't show that centre's distance.
+5. **Incidents** — Messages for the same address within `incident_window_minutes` form one incident. It escalates when the GRIP level or priority goes up, or more units or disciplines are alerted.
+6. **Output** — Every message is stored (shown in the dashboard and its history), matched against your sensors (all of a sensor's filters must match) and published to Home Assistant through the REST API and/or MQTT. With `ha_events` a `meldkamer_message` event is fired; with `announce` configured, messages of sensors with `announce: true` are spoken on your speakers.
+
+All data lives in one SQLite database in the add-on's `/data` folder, so it is kept across updates and included in Home Assistant backups.
 
 ## Network
 
@@ -88,7 +125,7 @@ Access via Home Assistant sidebar → Meldkamer:
 A fresh install starts with an **empty** database (aside from the built-in P2000 abbreviation dictionary and TTS/ignore-text defaults) — message parsing, badges, geocoding, and map pins all improve as you populate it. Capcodes, Places, and Streets are one-click imports that fetch live, free, public Dutch data over the internet, no API key needed:
 
 - **Capcodes** — "Import Bommel" pulls ~10,000 capcodes from all 25 regions directly from [p2000.bommel.net](https://p2000.bommel.net/)
-- **Places** — "Import All Places" / "Import BAG" pull city and street data from the [PDOK Locatieserver](https://www.pdok.nl/) (Dutch government address/place registry)
+- **Places** — "Import All Places" / "Import BAG" pull towns and their centre positions from the [PDOK Locatieserver](https://www.pdok.nl/) (Dutch government address/place registry)
 - **Streets** — "Import BAG" pulls official street names and their positions per province, also from PDOK. A message with a known street is placed on that street without an OpenCage request; OpenCage (when enabled) is only used for streets that aren't in the table. Add or edit a street's `latitude`/`longitude` yourself, or import them with the optional `latitude`,`longitude` CSV columns
 
 Each table gets its own card with row counts and Manage/Import actions:
@@ -96,8 +133,8 @@ Each table gets its own card with row counts and Manage/Import actions:
 | Table | Description | Import Options |
 |-------|-------------|----------------|
 | 📟 Capcodes | Emergency service identifiers | CSV, Bommel |
-| 🏙️ Places | City/town lookup | CSV, BAG, all-places |
-| 🛤️ Streets | Street address geocoding | CSV, BAG |
+| 🏙️ Places | Town recognition and town-centre positions | CSV, BAG, all-places |
+| 🛤️ Streets | Street recognition and street positions | CSV, BAG |
 | 📖 Texts | P2000 abbreviation dictionary | Built-in, CSV |
 | 📨 Messages | Received P2000 messages | — (filled automatically) |
 | 📍 Geocodes | OpenCage address lookup cache | — (filled automatically) |
