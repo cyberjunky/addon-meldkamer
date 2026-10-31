@@ -4,6 +4,7 @@
 
 - New `geocoding.only_sensor_matches` option (default off): only call OpenCage for messages that match a sensor, so a receiver hearing the whole country doesn't use up the free tier on messages you don't follow. Other messages use cached coordinates or the city-level position from the Places table. Zone filters also count messages up to 2 km outside the zone, as the street may lie inside it. The Info tab shows how many messages skipped OpenCage (#27).
 - "km from home" is now also left out for a message with a street that couldn't be geocoded (it was placed at the city centre).
+- Phone layout: on screens up to 700 px wide the top bar wraps into two rows (view tabs; receiver status, messages per hour, sensor filter and the sound/speech/map/theme toggles), so the sensor filter and toggles are no longer pushed off-screen. Settings and Info show as icons; the clock is hidden (#25).
 
 ## 1.2.8
 

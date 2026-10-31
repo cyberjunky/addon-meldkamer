@@ -1907,6 +1907,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             .feed-head, .feed-row { grid-template-columns: 58px 42px minmax(0, 1fr); }
             .feed-head .disc-col, .feed-row .disc, .feed-head .place-col, .feed-row .place { display: none; }
         }
+        /* Phones: the top bar wraps into two rows - view tabs, then status, filter and toggles */
+        .tab-icon { display: none; }
+        @media (max-width: 700px) {
+            .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
+            .topbar > .brand, .topbar > .spacer, .clock { display: none; }
+            .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
+            nav.tabs .tab { flex: 1; padding: 0 6px; }
+            nav.tabs .tab[data-tab="settings"], nav.tabs .tab[data-tab="info"] { flex: 0 0 36px; }
+            .tab-label { display: none; }
+            nav.tabs .tab:not([data-tab="settings"]):not([data-tab="info"]) .tab-label { display: inline; }
+            .tab-icon { display: inline; font-size: 15px; }
+            .kpis { order: 2; gap: 8px; }
+            .rx { font-size: 0; gap: 0; }  /* the coloured dot only; the status bar spells it out */
+            .topbar > .filter-tabs { order: 3; flex: 1 1 0; }
+            .topbar > .filter-tabs .filter-label { display: none; }
+            .topbar > .filter-tabs .filter-select { width: 100%; min-width: 0; }
+            .topbar > .tabs[role="group"] { order: 4; }
+        }
     </style>
 </head>
 <body>
@@ -1921,8 +1939,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <button type="button" class="tab" data-tab="wallboard" onclick="switchTab('wallboard')">Wallboard</button>
             <button type="button" class="tab" data-tab="lanes" onclick="switchTab('lanes')">Lanes</button>
             <span class="tab-sep" aria-hidden="true"></span>
-            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</button>
-            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')">Info</button>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Settings"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
         </nav>
         <div class="kpis">
             <span id="rx-status" class="rx stopped">DECODER STOPPED</span>
