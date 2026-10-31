@@ -1,0 +1,63 @@
+configuration:
+  receiver:
+    name: Ontvanger
+    description: >-
+      Type SDR-ontvanger en instellingen. bias_tee voedt een actieve antenne
+      of LNA (alleen rtl-sdr). offline_after_minutes is hoe lang er geen
+      FLEX-frames mogen binnenkomen voordat de ontvanger als offline geldt en
+      de decoder overschakelt naar de reserve-ontvanger via rtl_tcp
+      (backup_host/backup_port), of de actieve herstart als er geen reserve is
+      ingesteld.
+  geocoding:
+    name: Geocodering
+    description: >-
+      OpenCage-instellingen voor het opzoeken van adressen en de kaart.
+      only_sensor_matches vraagt OpenCage alleen voor meldingen die bij een
+      sensor passen; andere meldingen gebruiken opgeslagen posities of het
+      centrum van de plaats. Bespaart OpenCage-verzoeken.
+  repeat_window_seconds:
+    name: Herhaalvenster (seconden)
+    description: >-
+      Een identieke melding die binnen dit aantal seconden opnieuw binnenkomt,
+      telt als herhaling in plaats van als nieuwe melding. 0 schakelt dit uit.
+  incident_window_minutes:
+    name: Incidentvenster (minuten)
+    description: >-
+      Meldingen voor hetzelfde adres binnen dit aantal minuten na elkaar
+      worden samengevoegd tot één incident.
+  ha_events:
+    name: Home Assistant-events
+    description: >-
+      Stuur meldkamer_message voor elke melding en
+      meldkamer_incident_escalated wanneer een incident opschaalt, te
+      gebruiken als trigger in automatiseringen.
+  announce:
+    name: Omroepen op speakers
+    description: >-
+      Spreek meldingen van sensoren met "announce: true" uit op Home
+      Assistant-mediaspelers met tts.speak. tts_entity is bijvoorbeeld
+      tts.google_translate_nl_nl, media_players is een door komma's
+      gescheiden lijst van media_player-entiteiten.
+  sensors_enabled:
+    name: Sensoren inschakelen
+    description: >-
+      Publiceer passende P2000-meldingen, de status van de ontvanger en het
+      aantal meldingen per uur naar Home Assistant-sensoren.
+  sensors:
+    name: Sensoren
+    description: >-
+      Maak eigen Home Assistant-sensoren met filters op P2000-meldingen. Alle
+      tekstvelden (disciplines, cities, capcodes, priorities, text_contains)
+      accepteren door komma's gescheiden waarden om op meerdere te filteren.
+      zone (bijvoorbeeld zone.home) past alleen bij meldingen binnen die Home
+      Assistant-zone, op basis van de locatie en straal ervan.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publiceer de sensoren ook naar een MQTT-broker, naast de REST API van
+      Home Assistant. Laat host leeg om de Mosquitto-add-on te gebruiken.
+      ha_autodiscovery maakt de sensoren automatisch aan in Home Assistant;
+      de tls_*-instellingen zijn voor een broker die TLS vereist.
+  log_level:
+    name: Logniveau
+    description: Hoeveel details er in het logboek komen

@@ -49,6 +49,13 @@ configuration:
       support comma-separated values for matching multiple items. zone
       (e.g. zone.home) only matches messages inside that Home Assistant
       zone, using its location and radius.
+  mqtt:
+    name: MQTT
+    description: >-
+      Also publish sensors to an MQTT broker, next to the Home Assistant REST
+      API. Leave host empty to use the Mosquitto add-on. ha_autodiscovery
+      creates the sensors in Home Assistant automatically; tls_* settings are
+      for a broker that requires TLS.
   log_level:
     name: Log Level
     description: Logging verbosity
