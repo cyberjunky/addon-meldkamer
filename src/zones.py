@@ -49,6 +49,11 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return EARTH_RADIUS_KM * 2 * math.asin(math.sqrt(a))
 
 
+def osm_url(latitude: float, longitude: float) -> str:
+    """OpenStreetMap link to a point, like the mapurl OpenCage returns."""
+    return f"https://www.openstreetmap.org/?mlat={latitude}&mlon={longitude}#map=17/{latitude}/{longitude}"
+
+
 def distance_km(msg, latitude: float, longitude: float) -> float | None:
     """Distance from a message's coordinates to a point, rounded to 2 decimals.
 

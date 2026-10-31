@@ -17,7 +17,7 @@ from .parser import Parser
 from .publisher import Publisher
 from .sensor_manager import SensorManager
 from .tts import SpeechRules
-from .zones import HOME_ZONE, Zone, distance_km
+from .zones import HOME_ZONE, Zone, distance_km, osm_url
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +169,16 @@ class MessageProcessor:
     async def _locate(self, msg: P2000Message) -> bool:
         """Set the message's coordinates. Returns whether OpenCage geocoded it."""
         geocoded = False
+        # Street coordinates from the Streets table (BAG import or your own): no OpenCage request needed
+        if msg.street and msg.city:
+            coords = self.database.get_street_coordinates(msg.street, msg.city)
+            if coords:
+                msg.latitude = coords["latitude"]
+                msg.longitude = coords["longitude"]
+                msg.mapurl = osm_url(msg.latitude, msg.longitude)
+                msg.location_accuracy = "street"
+                return False
+
         if msg.address and self.geocoder.enabled:
             cache_only = self._geocode_cache_only(msg)
             # The OpenCage request is synchronous - run it off the event loop

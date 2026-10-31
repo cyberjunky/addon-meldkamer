@@ -89,7 +89,7 @@ A fresh install starts with an **empty** database (aside from the built-in P2000
 
 - **Capcodes** — "Import Bommel" pulls ~10,000 capcodes from all 25 regions directly from [p2000.bommel.net](https://p2000.bommel.net/)
 - **Places** — "Import All Places" / "Import BAG" pull city and street data from the [PDOK Locatieserver](https://www.pdok.nl/) (Dutch government address/place registry)
-- **Streets** — "Import BAG" pulls official street names per province, also from PDOK
+- **Streets** — "Import BAG" pulls official street names and their positions per province, also from PDOK. A message with a known street is placed on that street without an OpenCage request; OpenCage (when enabled) is only used for streets that aren't in the table. Add or edit a street's `latitude`/`longitude` yourself, or import them with the optional `latitude`,`longitude` CSV columns
 
 Each table gets its own card with row counts and Manage/Import actions:
 

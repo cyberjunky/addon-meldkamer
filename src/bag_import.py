@@ -6,6 +6,7 @@ Woonplaatsen-province mapping is stored locally for reliability.
 
 import json
 import logging
+import re
 import threading
 import time
 import urllib.parse
@@ -35,6 +36,9 @@ PROVINCES = [
 # PDOK uses the official name for some provinces
 PDOK_PROVINCE_NAMES = {"Friesland": "Fryslân"}
 _FROM_PDOK_PROVINCE = {v: k for k, v in PDOK_PROVINCE_NAMES.items()}
+
+# PDOK centroids are WKT points in WGS84, longitude first: "POINT(5.2376 52.0828)"
+_POINT_RE = re.compile(r"POINT\(\s*([-\d.]+)\s+([-\d.]+)\s*\)")
 
 LOCATIE_BASE = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free"
 PDOK_ROWS = 100  # Max rows per Locatieserver request
@@ -231,20 +235,32 @@ def import_all_places(database) -> int:
         return 0
 
 
-def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, str]]:
+def _parse_point(value: str) -> tuple[float | None, float | None]:
+    """(latitude, longitude) from a PDOK centroide_ll value, (None, None) when absent."""
+    match = _POINT_RE.match(value or "")
+    if not match:
+        return None, None
+    return float(match.group(2)), float(match.group(1))
+
+
+def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
     """
     Fetch unique streets for a woonplaats from PDOK Locatieserver.
     Uses the 'type:weg' (street) search which returns one record per street.
     Postcode areas (first 4 digits) are added best-effort from 'type:postcode',
     which returns one record per postcode and is capped by the Locatieserver
     paging limit for large cities.
-    Returns list of dicts with: street, postcode
+    The street's centroid (centroide_ll) gives its coordinates.
+    Returns list of dicts with: street, postcode, latitude, longitude
     """
     # fq with a quoted value handles multi-word names like "Hoek van Holland"
     fq = f"woonplaatsnaam:{_solr_quote(woonplaats)}"
     streets = {}  # dict to dedupe: street_name -> postcode
+    coordinates = {}  # street_name -> (latitude, longitude)
 
-    docs, complete = _pdok_search({"q": "type:weg", "fq": fq, "fl": "straatnaam"}, f"streets of {woonplaats}")
+    docs, complete = _pdok_search(
+        {"q": "type:weg", "fq": fq, "fl": "straatnaam,centroide_ll"}, f"streets of {woonplaats}"
+    )
     if not complete:
         _warn(f"Street list for {woonplaats} is incomplete ({len(docs)} loaded)")
     for doc in docs:
@@ -252,6 +268,7 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, str]]:
         # Skip very short street names (e.g., "A", "B") - they match too many messages
         if street and len(street) >= 3:
             streets.setdefault(street, "")
+            coordinates.setdefault(street, _parse_point(doc.get("centroide_ll", "")))
 
     docs, complete = _pdok_search(
         {"q": "type:postcode", "fq": fq, "fl": "straatnaam,postcode"}, f"postcodes of {woonplaats}"
@@ -265,7 +282,10 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, str]]:
             streets[street] = postcode[:4] if postcode else ""
 
     # Convert to list format
-    return [{"street": name, "postcode": pc} for name, pc in streets.items()]
+    return [
+        {"street": name, "postcode": pc, "latitude": coordinates[name][0], "longitude": coordinates[name][1]}
+        for name, pc in streets.items()
+    ]
 
 
 def _fetch_woonplaatsen_for_province(province: str) -> list[str]:

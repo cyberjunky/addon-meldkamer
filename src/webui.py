@@ -612,7 +612,11 @@ class WebUI:
         """Add a new street."""
         data = await _json_object(request)
         success = self.database.add_street(
-            data.get("street", ""), _city_id(data.get("city_id")), data.get("postalcode", "")
+            data.get("street", ""),
+            _city_id(data.get("city_id")),
+            data.get("postalcode", ""),
+            _float_or_none(data.get("latitude")),
+            _float_or_none(data.get("longitude")),
         )
         if success:
             return web.json_response({"success": True})
@@ -626,7 +630,12 @@ class WebUI:
             street_id = 0
         data = await _json_object(request)
         success = self.database.update_street(
-            street_id, data.get("street", ""), _city_id(data.get("city_id")), data.get("postalcode", "")
+            street_id,
+            data.get("street", ""),
+            _city_id(data.get("city_id")),
+            data.get("postalcode", ""),
+            _float_or_none(data.get("latitude")),
+            _float_or_none(data.get("longitude")),
         )
         return web.json_response({"success": success})
 
@@ -2148,7 +2157,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                     <span class="db-card-title">Streets</span>
                                     <span class="db-card-status empty" id="db-status-streets">-</span>
                                 </div>
-                                <div class="db-card-desc">Official BAG street names per province. Enables full street-address extraction for precise geocoding.</div>
+                                <div class="db-card-desc">Official BAG street names and positions per province. Places street addresses on the map without OpenCage.</div>
                                 <div class="db-card-count"><span id="db-count-streets">0</span> rows</div>
                                 <div class="db-card-actions">
                                     <button class="btn btn-primary" onclick="dbImportBAG(this)">Import BAG</button>
@@ -3788,7 +3797,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const dbColumns = {
             capcodes: ['capcode', 'discipline', 'region', 'location', 'description'],
             places: ['city', 'abbreviation', 'province'],
-            streets: ['street', 'city_name', 'postalcode'],
+            streets: ['street', 'city_name', 'postalcode', 'latitude', 'longitude'],
             messages: ['timestamp', 'discipline', 'city', 'street', 'body'],
             texts: ['abbreviation', 'full_text'],
             geocodes: ['query', 'city', 'street', 'latitude', 'longitude'],
@@ -3880,7 +3889,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const dbAddFields = {
             capcodes: ['capcode', 'discipline', 'region', 'location', 'description', 'remark'],
             places: ['city', 'abbreviation', 'province', 'latitude', 'longitude'],
-            streets: ['street', 'city_id', 'postalcode'],
+            streets: ['street', 'city_id', 'postalcode', 'latitude', 'longitude'],
             texts: ['abbreviation', 'full_text'],
             tts: ['pattern', 'replacement'],
             ignore_text: ['pattern'],
