@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Import BAG can import several provinces in one go: tick the provinces you want (or Select all / Deselect all) and they are imported one after the other, with a summary at the end.
 - The Streets card shows which provinces you have imported, and the Import BAG dialog marks them with their street count. A ⚠ marks a province whose streets have no positions yet (imported before 1.2.9): run Import BAG for it again. Worked out from the streets in the database, so it stays right after a CSV import or clearing the table.
 
 ## 1.2.9
