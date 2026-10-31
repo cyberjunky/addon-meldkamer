@@ -34,7 +34,19 @@ MAX_PHOTO_SIZE = 5 * 1024 * 1024
 MAX_FORM_FIELD_SIZE = 4 * 1024
 PHOTO_MIME_TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif")
 
-ADDON_VERSION = "1.2.8"
+
+def _addon_version() -> str:
+    """The add-on version from config.yaml (copied next to src/ in the image), so it can't drift."""
+    try:
+        for line in (Path(__file__).resolve().parent.parent / "config.yaml").read_text(encoding="utf-8").splitlines():
+            if line.startswith("version:"):
+                return line.split(":", 1)[1].strip().strip("\"'")
+    except OSError:
+        pass
+    return "dev"
+
+
+ADDON_VERSION = _addon_version()
 
 # The dashboard's map tiles come from Home Assistant's built-in map_tiles proxy:
 # browsers loading tiles straight from OpenStreetMap inside the ingress iframe
