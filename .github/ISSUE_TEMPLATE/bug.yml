@@ -1,0 +1,105 @@
+---
+name: "Bug report"
+description: "Report a bug with the add-on"
+labels: ["bug"]
+body:
+- type: markdown
+  attributes:
+    value: Before you open a new issue, search through the existing issues to see if others have had the same problem.
+- type: input
+  attributes:
+    label: "Add-on version"
+    description: "What version of the Meldkamer add-on are you running?"
+    placeholder: "e.g., 1.2.8"
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: "Home Assistant version"
+    description: "What version of Home Assistant are you running?"
+    placeholder: "e.g., 2026.10.0"
+  validations:
+    required: true
+- type: dropdown
+  attributes:
+    label: "Installation type"
+    description: "How is Home Assistant installed?"
+    options:
+      - Home Assistant OS
+      - Home Assistant Supervised
+  validations:
+    required: true
+- type: dropdown
+  attributes:
+    label: "Receiver type"
+    description: "Which receiver is configured (`receiver.type`)?"
+    options:
+      - rtl-sdr
+      - hackrf
+      - soapysdr
+      - network
+  validations:
+    required: true
+- type: input
+  attributes:
+    label: "Hardware"
+    description: "What hardware are you running on? Include the SDR model if relevant."
+    placeholder: "e.g., Raspberry Pi 5, RTL-SDR Blog V4"
+  validations:
+    required: false
+- type: checkboxes
+  attributes:
+    label: Checklist
+    options:
+      - label: "I have enabled debug logging (`log_level: debug`) and reviewed the logs."
+        required: true
+      - label: I have filled out the issue template to the best of my ability.
+        required: true
+      - label: This issue only contains 1 issue (if you have multiple issues, open one issue for each issue).
+        required: true
+      - label: This issue is not a duplicate of any [previous issues](https://github.com/cyberjunky/addon-meldkamer/issues?q=is%3Aissue+label%3Abug).
+        required: true
+- type: textarea
+  attributes:
+    label: "Describe the issue"
+    description: "A clear and concise description of what the issue is. Include any error message shown in the web UI."
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Reproduction steps
+    description: "Without steps to reproduce, it will be hard to fix. It is very important that you fill out this part."
+    value: |
+      1.
+      2.
+      3.
+      ...
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: "Add-on configuration"
+    description: "Paste your add-on configuration (remove sensitive data like MQTT passwords, tokens and your home location)."
+    render: yaml
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: "Add-on logs"
+    description: "Paste the relevant add-on logs. Enable debug logging (`log_level: debug`) for more details. Access logs via Settings → Add-ons → Meldkamer → Logs."
+    render: text
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: "Supervisor logs (if applicable)"
+    description: "If the add-on fails to start or install, paste supervisor logs (`ha supervisor logs`)."
+    render: text
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: "Screenshots"
+    description: "If the issue is visible in the web UI, add a screenshot."
+  validations:
+    required: false
