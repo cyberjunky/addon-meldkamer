@@ -4285,16 +4285,33 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         title: 'Import BAG address data',
                         bodyHTML: `
                             <div class="form-field">
-                                <label>Province</label>
-                                <select class="input" data-province style="width:100%">
-                                    ${provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(provinceLabel(p))}</option>`).join('')}
-                                </select>
+                                <label>Provinces</label>
+                                <div style="display:flex;gap:8px">
+                                    <button type="button" class="btn" data-select-all>Select all</button>
+                                    <button type="button" class="btn" data-select-none>Deselect all</button>
+                                </div>
                             </div>
-                            <div class="panel-sub">Imports cities and streets for the selected province. This may take 5-10 minutes for large provinces. Importing a province again adds what's new and keeps your own edits.</div>`,
-                        footHTML: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-start>Start import</button>`
+                            <!-- Outside .form-field, whose label style (small caps heading) would apply to the checkboxes -->
+                            <div data-provinces style="display:flex;flex-direction:column;gap:6px">
+                                ${provinces.map(p => `<label class="form-check"><input type="checkbox" value="${escapeHtml(p)}"> ${escapeHtml(provinceLabel(p))}</label>`).join('')}
+                            </div>
+                            <div class="panel-sub">Imports cities and streets for the selected provinces, one after the other. This may take 5-10 minutes per large province. Importing a province again adds what's new and keeps your own edits.</div>`,
+                        footHTML: `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-start disabled>Start import</button>`
                     });
-                    overlay.querySelector('[data-start]').addEventListener('click', () => {
-                        const province = overlay.querySelector('[data-province]').value;
+                    const boxes = [...overlay.querySelectorAll('[data-provinces] input[type="checkbox"]')];
+                    const startBtn = overlay.querySelector('[data-start]');
+                    const updateStart = () => {
+                        const n = boxes.filter(b => b.checked).length;
+                        startBtn.disabled = n === 0;
+                        startBtn.textContent = n > 1 ? `Start import (${n})` : 'Start import';
+                    };
+                    boxes.forEach(b => b.addEventListener('change', updateStart));
+                    overlay.querySelector('[data-select-all]').addEventListener('click', () => { boxes.forEach(b => { b.checked = true; }); updateStart(); });
+                    overlay.querySelector('[data-select-none]').addEventListener('click', () => { boxes.forEach(b => { b.checked = false; }); updateStart(); });
+
+                    startBtn.addEventListener('click', () => {
+                        const queue = boxes.filter(b => b.checked).map(b => b.value);
+                        if (!queue.length) return;
                         closeModal();
 
                         // Progress in the button itself, same as Import All Places
@@ -4306,46 +4323,63 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                             if (bagProgressInterval) { clearInterval(bagProgressInterval); bagProgressInterval = null; }
                         };
 
+                        // Import one province and resolve with its final progress.
                         // Poll only once the server has reset progress for this run,
                         // or the first poll can read the previous run's result
-                        fetch(`${basePath}api/db/bag/import/${encodeURIComponent(province)}`, {method: 'POST'})
-                            .then(r => r.json())
-                            .then(result => {
-                                if (result.error) {
-                                    toast(result.error, 'error');
-                                    resetBtn();
-                                    return;
+                        const importOne = (province, index) => new Promise((resolve, reject) => {
+                            const prefix = queue.length > 1 ? `${index + 1}/${queue.length} ` : '';
+                            fetch(`${basePath}api/db/bag/import/${encodeURIComponent(province)}`, {method: 'POST'})
+                                .then(r => r.json())
+                                .then(result => {
+                                    if (result.error) { reject(new Error(result.error)); return; }
+                                    stopPolling();
+                                    bagProgressInterval = setInterval(() => {
+                                        fetch(`${basePath}api/db/bag/progress`)
+                                            .then(r => r.json())
+                                            .then(p => {
+                                                if (btn) btn.textContent = `⏳ ${prefix}${p.percent}%`;
+                                                if (!p.running) { stopPolling(); resolve(p); }
+                                            })
+                                            .catch(() => { stopPolling(); reject(new Error('Lost track of BAG import progress')); });
+                                    }, 500);
+                                })
+                                .catch(() => reject(new Error('BAG import failed')));
+                        });
+
+                        // Run the selected provinces one after the other (the server allows one import at a time)
+                        const results = [];
+                        const runNext = index => {
+                            if (index >= queue.length) {
+                                const ok = results.filter(r => r.ok);
+                                const failed = results.filter(r => !r.ok);
+                                const streets = ok.reduce((sum, r) => sum + (r.streets || 0), 0);
+                                const cities = ok.reduce((sum, r) => sum + (r.cities || 0), 0);
+                                if (ok.length) {
+                                    toast(`BAG import complete: ${ok.length} province(s), ${cities} cities, ${streets} streets`, 'success');
                                 }
-                                stopPolling();
-                                bagProgressInterval = setInterval(() => {
-                                    fetch(`${basePath}api/db/bag/progress`)
-                                        .then(r => r.json())
-                                        .then(p => {
-                                            if (btn) btn.textContent = `⏳ ${p.percent}%`;
-                                            if (!p.running) {
-                                                stopPolling();
-                                                if (p.percent >= 100) {
-                                                    toast(`BAG import complete: ${p.cities} cities, ${p.streets} streets`, 'success');
-                                                } else {
-                                                    toast('BAG import failed: ' + (p.status || 'unknown error'), 'error');
-                                                }
-                                                resetBtn();
-                                                dbLoadStats();
-                                                if (dbCurrentTable) dbLoadData();
-                                            }
-                                        })
-                                        .catch(() => {
-                                            stopPolling();
-                                            toast('Lost track of BAG import progress', 'error');
-                                            resetBtn();
-                                        });
-                                }, 500);
-                            })
-                            .catch(() => {
-                                stopPolling();
-                                toast('BAG import failed', 'error');
+                                if (failed.length) {
+                                    toast(`BAG import failed for: ${failed.map(r => r.province).join(', ')}`, 'error');
+                                }
                                 resetBtn();
-                            });
+                                // Also refreshes the province chips (dbLoadProvinces)
+                                dbLoadStats();
+                                if (dbCurrentTable) dbLoadData();
+                                return;
+                            }
+                            const province = queue[index];
+                            importOne(province, index)
+                                .then(p => {
+                                    const ok = p.percent >= 100;
+                                    results.push({province, ok, cities: p.cities, streets: p.streets});
+                                    if (!ok) toast(`BAG import of ${province} failed: ` + (p.status || 'unknown error'), 'error');
+                                })
+                                .catch(err => {
+                                    results.push({province, ok: false});
+                                    toast(`BAG import of ${province} failed: ${err.message}`, 'error');
+                                })
+                                .then(() => runNext(index + 1));
+                        };
+                        runNext(0);
                     });
                 })
                 .catch(() => toast('Failed to load provinces', 'error'));
