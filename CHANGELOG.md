@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed: Import BAG skipped all streets of a place when one of its streets only appeared in the postcode results (warning "Failed to import streets for <place>: <street name>"). Those streets are now imported without a position.
 - The Streets card shows which provinces you have imported, and the Import BAG dialog marks them with their street count. A ⚠ marks a province whose streets have no positions yet (imported before 1.2.9): run Import BAG for it again. Worked out from the streets in the database, so it stays right after a CSV import or clearing the table.
 
 ## 1.2.9
