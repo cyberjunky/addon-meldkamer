@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
-- Import BAG can import several provinces in one go: tick the provinces you want (or Select all / Deselect all) and they are imported one after the other, with a summary at the end.
-- Fixed: Import BAG skipped all streets of a place when one of its streets only appeared in the postcode results (warning "Failed to import streets for <place>: <street name>"). Those streets are now imported without a position.
+### Streets import
+- Import BAG can import several provinces in one go: tick the provinces you want (or Select all / Deselect all) and they are imported one after the other, with a summary at the end (#42, thanks @SvenKortekaas).
 - The Streets card shows which provinces you have imported, and the Import BAG dialog marks them with their street count. A ⚠ marks a province whose streets have no positions yet (imported before 1.2.9): run Import BAG for it again. Worked out from the streets in the database, so it stays right after a CSV import or clearing the table.
+- Fixed: Import BAG skipped all streets of a place when one of its streets only appeared in the postcode results (warning "Failed to import streets for <place>: <street name>"). Those streets are now imported without a position (#41, thanks @SvenKortekaas).
+
+### Other
+- Dutch translations for the add-on configuration: option names and descriptions show in Dutch when Home Assistant's language is Dutch. The `mqtt` option now has a name and description in both languages.
+- The dashboard showed the wrong add-on version (1.2.9 showed v1.2.8); it now reads the version from the add-on itself.
 
 ## 1.2.9
 
