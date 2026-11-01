@@ -292,11 +292,13 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
         if street and len(street) >= 3 and not streets.get(street):
             streets[street] = postcode[:4] if postcode else ""
 
-    # Convert to list format
-    return [
-        {"street": name, "postcode": pc, "latitude": coordinates[name][0], "longitude": coordinates[name][1]}
-        for name, pc in streets.items()
-    ]
+    # Convert to list format. Streets only found in the postcode results have no centroid:
+    # keep them without a position instead of failing the whole place
+    result = []
+    for name, pc in streets.items():
+        lat, lon = coordinates.get(name, (None, None))
+        result.append({"street": name, "postcode": pc, "latitude": lat, "longitude": lon})
+    return result
 
 
 def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | None, float | None]]:
