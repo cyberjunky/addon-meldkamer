@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed: the Console's "Reference data not imported yet" hint stayed visible, with empty brackets, once everything was imported.
 - Town shortnames in a message ("SGRAVH", "ROTTDM") are shown as a tag in the message detail with the town they stand for, like the other abbreviations. The message text itself stays as received.
 - The map library (Leaflet) is bundled with the add-on instead of loaded from the unpkg CDN. Browsers with strict tracking protection (Edge, Brave) blocked that download and showed no map; the dashboard now needs no internet access for its own interface.
 - The 💬 browser-notification toggle now says what to do when the browser blocked notifications (lock icon → Notifications → Allow) or hid the permission prompt behind the bell icon in the address bar, instead of one "blocked" message for both, and that notifications need Home Assistant over HTTPS (a plain http:// LAN address is refused by the browser without a prompt).

@@ -1661,6 +1661,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             background: rgba(245, 165, 36, 0.12); border: 1px solid var(--prio-2); font-size: 12.5px;
         }
         .setup-hint span { flex: 1; }
+        .setup-hint[hidden] { display: none; }
         /* Console toolbar: search, priority and discipline chips */
         .feed-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 14px; border-bottom: var(--card-border); }
         .feed-tools .input { height: 28px; flex: 1 1 160px; min-width: 120px; }
