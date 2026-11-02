@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Streets that BAG lists in two spellings for one town ("De Akkers" and "de Akkers") are imported once, and existing ones are merged on startup: the one with a position is kept and takes over the other's postcode.
+- Import BAG no longer gives "Kapel Avezaath" the streets of "Kapel-Avezaath" (and the other way round): only streets of the exact town are imported.
+- The Import BAG status now ends in phase "Complete" and says "new places" and "new streets", as only new ones are counted.
+
 ## 1.3.0
 
 ### Streets import

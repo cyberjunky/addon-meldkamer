@@ -448,6 +448,9 @@ class Database:
             self._rebuild_table_with_id("places", ["city", "abbreviation", "province", "latitude", "longitude"])
             self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
             self._ensure_unique_streets()
+            merged = self.merge_case_duplicate_streets()
+            if merged:
+                logger.info(f"Merged {merged} streets that only differed in capitalisation")
         except sqlite3.Error as e:
             logger.error(f"Schema migration failed: {e}")
 
@@ -500,6 +503,36 @@ class Database:
                     logger.info(f"Removed {removed} duplicate streets")
             except sqlite3.Error as e:
                 logger.warning(f"Could not add unique street index: {e}")
+
+    def merge_case_duplicate_streets(self) -> int:
+        """Merge streets of one place that only differ in capitalisation ("De Akkers" / "de Akkers").
+
+        BAG has some streets in two spellings. Per place, the variant with a position is kept
+        (the oldest one if several have it), it takes over a postcode it lacks from another
+        variant, and the others are removed. Returns the number of streets removed.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, street, city_id, postalcode, latitude, longitude FROM streets ORDER BY id"
+            ).fetchall()
+            groups: dict[tuple, list] = {}
+            for row in rows:
+                groups.setdefault((row[1].casefold(), row[2]), []).append(row)
+            duplicates = [group for group in groups.values() if len(group) > 1]
+            if not duplicates:
+                return 0
+            removed = 0
+            with self._transaction() as conn:
+                for group in duplicates:
+                    keep = next((row for row in group if row[4] is not None), group[0])
+                    postcode = keep[3] or next((row[3] for row in group if row[3]), "")
+                    if postcode != (keep[3] or ""):
+                        conn.execute("UPDATE streets SET postalcode = ? WHERE id = ?", (postcode, keep[0]))
+                    others = [(row[0],) for row in group if row[0] != keep[0]]
+                    conn.executemany("DELETE FROM streets WHERE id = ?", others)
+                    removed += len(others)
+        self.invalidate_text_caches()
+        return removed
 
     def get_stats(self) -> dict:
         """Get database statistics for WebUI."""
