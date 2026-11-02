@@ -110,6 +110,29 @@ def _solr_quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def _pdok_request(query: dict[str, str], label: str) -> dict | None:
+    """One Locatieserver request, retried a few times; None when it kept failing."""
+    url = f"{LOCATIE_BASE}?{urllib.parse.urlencode(query)}"
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "P2000-Studio/2.1"})
+            with urllib.request.urlopen(req, timeout=60) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as e:
+            if attempt < 2:
+                logger.debug(f"PDOK request for {label} failed (attempt {attempt + 1}), retrying: {e}")
+                time.sleep(2 * (attempt + 1))
+            else:
+                logger.warning(f"PDOK request for {label} failed: {e}")
+    return None
+
+
+def _pdok_count(params: dict[str, str], label: str) -> int:
+    """How many results a Locatieserver query has, without fetching them (0 when the request failed)."""
+    data = _pdok_request({**params, "rows": "0"}, label)
+    return data.get("response", {}).get("numFound", 0) if data else 0
+
+
 def _pdok_search(params: dict[str, str], label: str, on_page=None) -> tuple[list[dict], bool]:
     """Fetch all pages of a PDOK Locatieserver query.
 
@@ -120,21 +143,7 @@ def _pdok_search(params: dict[str, str], label: str, on_page=None) -> tuple[list
     docs_out: list[dict] = []
     start = 0
     while True:
-        query = {**params, "rows": str(PDOK_ROWS), "start": str(start)}
-        url = f"{LOCATIE_BASE}?{urllib.parse.urlencode(query)}"
-        data = None
-        for attempt in range(3):
-            try:
-                req = urllib.request.Request(url, headers={"User-Agent": "P2000-Studio/2.1"})
-                with urllib.request.urlopen(req, timeout=60) as response:
-                    data = json.loads(response.read().decode("utf-8"))
-                break
-            except Exception as e:
-                if attempt < 2:
-                    logger.debug(f"PDOK request for {label} failed (attempt {attempt + 1}), retrying: {e}")
-                    time.sleep(2 * (attempt + 1))
-                else:
-                    logger.warning(f"PDOK request for {label} failed at offset {start}: {e}")
+        data = _pdok_request({**params, "rows": str(PDOK_ROWS), "start": str(start)}, f"{label} at offset {start}")
         if data is None:
             return docs_out, False
 
@@ -254,13 +263,46 @@ def _parse_point(value: str) -> tuple[float | None, float | None]:
     return float(match.group(2)), float(match.group(1))
 
 
+def _fetch_postcode_docs(woonplaats: str, fq: str) -> tuple[list[dict], bool]:
+    """All type:postcode results of a woonplaats.
+
+    The Locatieserver pages through 10,000 results at most, which Amsterdam,
+    Rotterdam and The Hague exceed. Then the postcodes are fetched per postcode
+    area instead: a cheap count per two-digit prefix finds the areas the
+    woonplaats has, and an area that is itself too large is split into its
+    three-digit parts (each a few thousand at most).
+    """
+    fl = "straatnaam,woonplaatsnaam,postcode"
+    docs, complete = _pdok_search({"q": "type:postcode", "fq": fq, "fl": fl}, f"postcodes of {woonplaats}")
+    if complete:
+        return docs, True
+
+    logger.info(f"Postcodes of {woonplaats} exceed the Locatieserver limit - fetching them per postcode area")
+    docs, complete = [], True
+    for prefix in range(10, 100):
+        area = {"q": "type:postcode", "fq": f"{fq} AND postcode:{prefix}*", "fl": fl}
+        count = _pdok_count(area, f"postcode area {prefix}* of {woonplaats}")
+        if not count:
+            continue
+        parts = (
+            [area]
+            if count <= PDOK_MAX_START
+            else [{**area, "fq": f"{fq} AND postcode:{prefix}{digit}*"} for digit in range(10)]
+        )
+        for part in parts:
+            part_docs, part_ok = _pdok_search(part, f"{part['fq'].rsplit(':', 1)[1]} of {woonplaats}")
+            docs.extend(part_docs)
+            complete = complete and part_ok
+    return docs, complete
+
+
 def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
     """
     Fetch unique streets for a woonplaats from PDOK Locatieserver.
     Uses the 'type:weg' (street) search which returns one record per street.
-    Postcode areas (first 4 digits) are added best-effort from 'type:postcode',
-    which returns one record per postcode and is capped by the Locatieserver
-    paging limit for large cities.
+    Postcode areas (first 4 digits) are added from 'type:postcode', which
+    returns one record per postcode (fetched per postcode area for the
+    largest cities, see _fetch_postcode_docs).
     The street's centroid (centroide_ll) gives its coordinates.
     Returns list of dicts with: street, postcode, latitude, longitude
     """
@@ -290,11 +332,9 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
             streets.setdefault(name, "")
             coordinates.setdefault(name, _parse_point(doc.get("centroide_ll", "")))
 
-    docs, complete = _pdok_search(
-        {"q": "type:postcode", "fq": fq, "fl": "straatnaam,woonplaatsnaam,postcode"}, f"postcodes of {woonplaats}"
-    )
+    docs, complete = _fetch_postcode_docs(woonplaats, fq)
     if not complete:
-        logger.info(f"Postcodes for {woonplaats} incomplete - some streets will have no postcode")
+        _warn(f"Postcode list for {woonplaats} is incomplete ({len(docs)} loaded) - some streets have no postcode")
     for doc in docs:
         street = doc.get("straatnaam", "").strip()
         postcode = doc.get("postcode", "").strip()
