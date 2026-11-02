@@ -58,6 +58,7 @@ options:
     tts_entity: ""
     media_players: ""
     language: nl
+    quiet_hours: ""
   sensors_enabled: false
   sensors:
     - name: Thuis
@@ -109,6 +110,7 @@ schema:
     tts_entity: 'match(^(tts\.[a-z0-9_]+)?$)?'
     media_players: str?
     language: str?
+    quiet_hours: 'match(^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})?\s*$)?'
   sensors_enabled: bool?
   sensors:
     - name: str

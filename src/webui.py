@@ -383,6 +383,8 @@ class WebUI:
             "geocode_rate_limited": geocoder.rate_limited,
             "geocode_only_sensor_matches": config.geocode_only_sensor_matches,
             "geocode_skipped": self.processor.geocode_skipped,
+            "quiet_hours": config.announce_quiet_hours,
+            "quiet_now": config.quiet_now(),
             "home": (
                 {"latitude": home.latitude, "longitude": home.longitude, "radius_km": home.radius_km} if home else None
             ),
@@ -1501,6 +1503,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .filter-select option { background: var(--ha-card-background); color: var(--primary-text-color); }
         .icon-tab { width: 32px; padding: 0; font-size: 14px; }
         .icon-tab.off { opacity: 0.45; }
+        .icon-tab.quiet { opacity: 0.45; }
         .filter-label {
             padding: 0 8px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
             text-transform: uppercase; color: var(--secondary-text-color);
@@ -2043,6 +2046,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             </button>
             <button type="button" id="tts-toggle" class="tab icon-tab" onclick="toggleTts()" title="Toggle speech output">
                 <span id="tts-icon">🔇</span>
+            </button>
+            <button type="button" id="notify-toggle" class="tab icon-tab" onclick="toggleNotify()" title="Browser notifications">
+                <span id="notify-icon">💬</span>
             </button>
             <button type="button" id="automap-toggle" class="tab icon-tab" onclick="toggleAutoMap()" title="Auto-show new messages on map">
                 <span id="automap-icon">📍</span>
@@ -2718,13 +2724,86 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         let soundEnabled = localStorage.getItem('p2000_sound_enabled') !== 'false';
         let audioContext = null;
 
+        // Quiet hours (announce.quiet_hours): the server says whether they apply
+        // now; sound, speech and notifications stay silent then
+        let quietNow = false;
+        let quietHours = '';
+        function quietSuffix() {
+            return quietNow ? ` · quiet hours (${quietHours})` : '';
+        }
+        function applyQuiet(stats) {
+            const now = Boolean(stats.quiet_now);
+            if (now === quietNow && (stats.quiet_hours || '') === quietHours) return;
+            quietNow = now;
+            quietHours = stats.quiet_hours || '';
+            ['sound-toggle', 'tts-toggle', 'notify-toggle'].forEach(id => document.getElementById(id).classList.toggle('quiet', quietNow));
+            initSoundToggle();
+            initTtsToggle();
+            initNotifyToggle();
+        }
+
         function initSoundToggle() {
             const btn = document.getElementById('sound-toggle');
             const icon = document.getElementById('sound-icon');
             btn.classList.toggle('active', soundEnabled);
             btn.classList.toggle('off', !soundEnabled);
             icon.textContent = soundEnabled ? '🔔' : '🔕';
-            btn.title = soundEnabled ? 'Sound notifications ON - click to disable' : 'Sound notifications OFF - click to enable';
+            btn.title = (soundEnabled ? 'Sound notifications ON - click to disable' : 'Sound notifications OFF - click to enable') + quietSuffix();
+        }
+
+        // Browser notifications for new messages while the dashboard isn't visible
+        let notifyEnabled = localStorage.getItem('p2000_notify_enabled') === 'true'
+            && 'Notification' in window && Notification.permission === 'granted';
+
+        function initNotifyToggle() {
+            const btn = document.getElementById('notify-toggle');
+            btn.classList.toggle('active', notifyEnabled);
+            btn.classList.toggle('off', !notifyEnabled);
+            btn.title = (notifyEnabled
+                ? 'Browser notifications ON - new messages notify while this page is in the background'
+                : 'Browser notifications OFF - click to enable') + quietSuffix();
+        }
+
+        function toggleNotify() {
+            if (notifyEnabled) {
+                notifyEnabled = false;
+                localStorage.setItem('p2000_notify_enabled', 'false');
+                initNotifyToggle();
+                return;
+            }
+            if (!('Notification' in window)) {
+                toast('This browser has no notifications here (they need HTTPS or localhost)', 'error');
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                if (permission !== 'granted') {
+                    toast('Notifications are blocked for this site in the browser settings', 'error');
+                    return;
+                }
+                notifyEnabled = true;
+                localStorage.setItem('p2000_notify_enabled', 'true');
+                initNotifyToggle();
+                toast('Browser notifications on: shown while this page is in the background', 'success');
+            });
+        }
+
+        function showBrowserNotification(msg) {
+            if (!notifyEnabled || quietNow || !document.hidden || !msg) return;
+            try {
+                const title = [prioLabel(msg), msg.discipline || 'P2000', placeOf(msg)].filter(Boolean).join(' · ');
+                const n = new Notification(title, {
+                    body: msg.body || '',
+                    tag: 'meldkamer-' + (msg.incident_id || msg.id || msg.timestamp),
+                    renotify: true,
+                });
+                n.onclick = () => {
+                    window.focus();
+                    if (msg.id !== undefined && msg.id !== null) { pendingMessageId = msg.id; openDeepLink(); }
+                    n.close();
+                };
+            } catch (e) {
+                console.warn('Notification failed', e);
+            }
         }
 
         function toggleSound() {
@@ -2750,7 +2829,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.addEventListener('touchstart', unlockAudio, { once: true });
 
         function playNotificationSound() {
-            if (!soundEnabled) return;
+            if (!soundEnabled || quietNow) return;
             try {
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -2813,7 +2892,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             btn.classList.toggle('active', ttsEnabled);
             btn.classList.toggle('off', !ttsEnabled);
             icon.textContent = ttsEnabled ? '🗣️' : '🔇';
-            btn.title = ttsEnabled ? 'Speech ON - new messages are read aloud' : 'Speech OFF - click to enable';
+            btn.title = (ttsEnabled ? 'Speech ON - new messages are read aloud' : 'Speech OFF - click to enable') + quietSuffix();
         }
 
         function toggleTts() {
@@ -2826,7 +2905,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         function speakMessage(msg) {
-            if (!ttsEnabled || !window.speechSynthesis || !msg || !msg.tts) return;
+            if (!ttsEnabled || quietNow || !window.speechSynthesis || !msg || !msg.tts) return;
             // msg.tts is the spoken form built server-side with the TTS
             // replacement rules - the same text Home Assistant speakers get
             const utterance = new SpeechSynthesisUtterance(msg.tts);
@@ -2853,6 +2932,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (topTimestamp && topTimestamp !== lastSeenTopTimestamp) {
                 playNotificationSound();
                 speakMessage(top);
+                showBrowserNotification(top);
                 const earlier = top.incident_id && currentMessages.filter(m => m.incident_id === top.incident_id);
                 if (earlier && earlier.length) {
                     toast(`Incident escalated: ${top.address || top.city || ''} (${earlier.length + 1} messages)`, 'error');
@@ -2865,6 +2945,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         initSoundToggle();
+        initNotifyToggle();
         initAutoMapToggle();
         initTtsToggle();
         initThemeToggle();
@@ -3893,6 +3974,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             lastStats = stats;
 
             renderZones(stats.sensor_zones, stats.home);
+            applyQuiet(stats);
             checkForNewMessages(data.latest || []);
 
             // First-run hint: nothing works well until the reference data is imported

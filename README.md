@@ -116,7 +116,7 @@ Access via Home Assistant sidebar → Meldkamer:
   - **Wallboard** — large map with live counts, incidents sorted by priority and a ticker of the newest messages; for an always-on screen
   - **Lanes** — one column per discipline (Brandweer, Ambulance, Politie, other) next to the map
 
-  The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list (or `j`/`k` and the arrow keys; `1`/`2`/`3` switch views, Escape closes the floating detail). Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech and auto-focus toggles sit in the top bar. The map shows your home (from Home Assistant's home zone) and the zones your sensors filter on. A message's detail lists which of your sensors it matched, and selecting a message puts `#msg=<id>` in the URL: open the dashboard with that hash (for example from a notification, see the `dashboard_url` event field) and it shows that message, also one that has already left the live list. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
+  The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list (or `j`/`k` and the arrow keys; `1`/`2`/`3` switch views, Escape closes the floating detail). Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech, browser-notification and auto-focus toggles sit in the top bar. Browser notifications (💬, asks the browser for permission once) show new messages of the current feed while the dashboard is in the background; clicking one opens that message. The map shows your home (from Home Assistant's home zone) and the zones your sensors filter on. A message's detail lists which of your sensors it matched, and selecting a message puts `#msg=<id>` in the URL: open the dashboard with that hash (for example from a notification, see the `dashboard_url` event field) and it shows that message, also one that has already left the live list. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
 - **Settings** — Card-based data management for every table below
 - **Info** — Receiver, device and database status, reception quality and message statistics
 
@@ -405,11 +405,14 @@ announce:
   tts_entity: tts.google_translate_nl_nl
   media_players: "media_player.kitchen, media_player.living_room"
   language: nl
+  quiet_hours: "23:00-07:00"
 sensors:
   - name: "Thuis"
     zone: zone.home
     announce: true
 ```
+
+`quiet_hours` (optional, local time, may cross midnight) silences the speakers between those times. The dashboard follows it too: no sound, browser speech or browser notifications during quiet hours (the toggles dim and say so).
 
 ### Map Card
 

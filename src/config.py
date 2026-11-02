@@ -1,8 +1,13 @@
 """Configuration management for Meldkamer."""
 
 import json
+import logging
+import re
 from dataclasses import dataclass, field
+from datetime import datetime, time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # P2000 FLEX fixed settings
 P2000_FREQUENCY = "169.65M"
@@ -11,6 +16,33 @@ P2000_DECODER = "FLEX"
 P2000_NETWORK_NAME = "P2000 FLEX"
 
 OPTIONS_FILE = "/data/options.json"
+
+_QUIET_HOURS_RE = re.compile(r"^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$")
+
+
+def parse_quiet_hours(value: str) -> tuple[time, time] | None:
+    """Parse "23:00-07:00" into (start, end) local times; None when empty or invalid."""
+    if not value or not value.strip():
+        return None
+    match = _QUIET_HOURS_RE.match(value)
+    try:
+        if match:
+            return time(int(match.group(1)), int(match.group(2))), time(int(match.group(3)), int(match.group(4)))
+    except ValueError:
+        pass
+    logger.warning(f"Ignoring invalid quiet_hours {value!r} (expected e.g. 23:00-07:00)")
+    return None
+
+
+def in_quiet_hours(window: tuple[time, time] | None, now: datetime | None = None) -> bool:
+    """Whether the local time is inside the window; a window may cross midnight."""
+    if window is None:
+        return False
+    start, end = window
+    current = (now or datetime.now()).time()
+    if start <= end:
+        return start <= current < end
+    return current >= start or current < end
 
 
 @dataclass
@@ -61,6 +93,8 @@ class Config:
     announce_tts_entity: str = ""
     announce_media_players: list[str] = field(default_factory=list)
     announce_language: str = ""
+    # No announcements, browser sounds, speech or notifications between these local times, e.g. "23:00-07:00"
+    announce_quiet_hours: str = ""
 
     # Only call OpenCage for messages a sensor can match; others use the cache or city-level coordinates
     geocode_only_sensor_matches: bool = False
@@ -108,6 +142,10 @@ class Config:
     def announce_enabled(self) -> bool:
         return bool(self.announce_tts_entity and self.announce_media_players)
 
+    def quiet_now(self) -> bool:
+        """Whether announce.quiet_hours covers the current local time."""
+        return in_quiet_hours(parse_quiet_hours(self.announce_quiet_hours))
+
     @classmethod
     def from_options_file(cls, path: str = OPTIONS_FILE) -> "Config":
         try:
@@ -147,6 +185,7 @@ class Config:
             announce_tts_entity=announce.get("tts_entity", ""),
             announce_media_players=[p.strip() for p in announce.get("media_players", "").split(",") if p.strip()],
             announce_language=announce.get("language", ""),
+            announce_quiet_hours=announce.get("quiet_hours", ""),
             sensors_enabled=data.get("sensors_enabled", False),
             sensors=data.get("sensors", []),
             mqtt_enabled=mqtt.get("enabled", False),

@@ -7,6 +7,8 @@
 - Keyboard: `j`/`k` or the arrow keys step through the messages, `1`/`2`/`3` switch between Console, Wallboard and Lanes, Escape closes the floating detail.
 - A hint on the Console while the capcodes, places or streets are not imported yet, with a button to Settings.
 - The map shows your home (from Home Assistant's home zone).
+- New `announce.quiet_hours` option (e.g. `23:00-07:00`): no speaker announcements between those times, and the dashboard's sound, speech and notifications stay silent too (the toggles dim and say so).
+- Browser notifications (💬 toggle in the top bar): new messages of the current feed notify while the dashboard is in the background; clicking a notification opens the message.
 - Console: a search box (press `/`) searches all stored messages, not just the live list; P1/P2/P3+ and discipline chips narrow the list; "Older messages" at the bottom loads earlier messages from the database. Previous/Next and the keyboard walk the list as shown.
 
 ## 1.3.0
