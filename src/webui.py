@@ -1481,13 +1481,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .tab.active { background: var(--primary-color); color: #fff; }
         .tab-sep { width: 1px; margin: 4px 4px; background: var(--divider-color); }
 
-        .kpis { display: flex; align-items: center; gap: 16px; font-family: var(--mono); font-size: 12px; color: var(--secondary-text-color); }
-        .kpis b { color: var(--primary-text-color); font-weight: 500; }
-        .rx { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
-        .rx::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-        .rx.online { color: var(--success-color); }
-        .rx.offline { color: var(--prio-2); }
-        .rx.stopped { color: var(--danger-color); }
         .spacer { flex: 1; }
 
         /* Sensor filter: the view tabs' segmented control, scrolling sideways when space runs out */
@@ -1523,12 +1516,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             background: var(--ha-card-background); border-top: var(--card-border);
             font-family: var(--mono); font-size: 11px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden;
         }
-        .conn { display: inline-flex; align-items: center; gap: 6px; }
-        .conn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--secondary-text-color); }
-        .conn.live { color: var(--success-color); }
-        .conn.live .dot { background: var(--success-color); }
-        .conn.reconnecting { color: var(--prio-2); }
-        .conn.reconnecting .dot { background: var(--prio-2); }
+        .statusbar b { color: var(--primary-text-color); font-weight: 500; }
         .decoder-ok { color: var(--success-color); }
         .decoder-warn { color: var(--prio-2); }
         .decoder-bad { color: var(--danger-color); }
@@ -1964,7 +1952,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         /* Smaller screens (laptops, 1280-1400 px wide or up to 800 px high) */
         @media (max-width: 1400px) {
-            .brand-name, .kpis .kpi-extra, .sensor-filter-pill { display: none; }
+            .brand-name, .sensor-filter-pill { display: none; }
             .filter-select { display: block; }
             .clock { font-size: 18px; }
             .console { grid-template-columns: minmax(0, 1fr) var(--console-side, minmax(460px, 40%)); }
@@ -2005,12 +1993,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             .tab-label { display: none; }
             nav.tabs .tab:not([data-tab="settings"]):not([data-tab="info"]) .tab-label { display: inline; }
             .tab-icon { display: inline; font-size: 15px; }
-            .kpis { order: 2; gap: 8px; }
-            .rx { font-size: 0; gap: 0; }  /* the coloured dot only; the status bar spells it out */
             .topbar > .filter-tabs { order: 3; flex: 1 1 0; }
             .topbar > .filter-tabs .filter-label { display: none; }
             .topbar > .filter-tabs .filter-select { width: 100%; min-width: 0; }
             .topbar > .tabs[role="group"] { order: 4; }
+            .statusbar { gap: 12px; padding: 0 8px; }
+            .statusbar .sb-extra { display: none; }
         }
     </style>
 </head>
@@ -2019,7 +2007,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="brand">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14M8 8a6 6 0 0 0 0 8M16 8a6 6 0 0 1 0 8"/><circle cx="12" cy="12" r="1.6"/></svg>
             <span class="brand-name">MELDKAMER</span>
-            <span class="brand-sub"><span id="network-name">P2000 FLEX</span> · <span id="receiver-type"></span></span>
+            <span class="brand-sub" id="network-name">P2000 FLEX</span>
         </div>
         <nav class="tabs" aria-label="Views">
             <button type="button" class="tab" data-tab="console" onclick="switchTab('console')">Console</button>
@@ -2029,12 +2017,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Settings"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
             <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
         </nav>
-        <div class="kpis">
-            <span id="rx-status" class="rx stopped">DECODER STOPPED</span>
-            <span>MSG <b id="kpi-msgs-hour">0</b>/h</span>
-            <span class="kpi-extra">FRAMES <b id="kpi-frames">0</b>/min</span>
-            <span class="kpi-extra">INCIDENTS <b id="kpi-incidents">0</b></span>
-        </div>
         <span class="spacer"></span>
         <div id="sensor-filter-bar" class="tabs filter-tabs" aria-label="Feed filter"></div>
         <div class="tabs" role="group" aria-label="Sound, speech, map focus and theme">
@@ -2421,13 +2403,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
 
     <footer class="statusbar">
-        <span id="decoder-status" class="decoder-bad">● DECODER STOPPED</span>
-        <span id="device-info"></span>
-        <span id="stream-status" class="conn" title="Live data connection"><span class="dot"></span><span id="stream-status-text">Connecting…</span></span>
+        <span id="decoder-status" class="decoder-warn">● CONNECTING…</span>
+        <span id="device-info" class="sb-extra"></span>
         <span class="spacer"></span>
-        <span><span id="total-messages">0</span> messages</span>
-        <span>uptime <span id="uptime">0m</span></span>
-        <span>v__ADDON_VERSION__</span>
+        <span>MSG <b id="kpi-msgs-hour">0</b>/h</span>
+        <span>FRAMES <b id="kpi-frames">0</b>/min</span>
+        <span>INCIDENTS <b id="kpi-incidents">0</b></span>
+        <span class="sb-extra"><span id="total-messages">0</span> messages</span>
+        <span class="sb-extra">uptime <span id="uptime">0m</span></span>
+        <span class="sb-extra">v__ADDON_VERSION__</span>
     </footer>
 
     <!-- The map and the message detail are single elements, moved into the active view -->
@@ -2652,8 +2636,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const disciplineChartEl = document.getElementById('discipline-chart');
         const detailContent = document.getElementById('detail-content');
         const historyList = document.getElementById('history-list');
-        const streamStatusEl = document.getElementById('stream-status');
-        const streamStatusText = document.getElementById('stream-status-text');
+
+        // One status in the status bar: the receiver's state while the live
+        // connection is up, otherwise the connection state (the receiver
+        // state would be stale then)
+        let streamState = 'CONNECTING…';  // '' while live
+        let receiverState = null;  // [className, text, title] from the latest stats
+        function renderStatus() {
+            const [cls, text, title] = streamState || !receiverState
+                ? ['decoder-warn', streamState || 'CONNECTING…', 'No live connection to the add-on']
+                : receiverState;
+            decoderEl.className = cls;
+            decoderEl.textContent = '● ' + text;
+            decoderEl.title = title;
+        }
 
         // =====================================================================
         // Toasts & modals
@@ -3913,31 +3909,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (networkEl && stats.network_name) {
                 networkEl.textContent = stats.network_name;
             }
-            const receiverEl = document.getElementById('receiver-type');
-            if (receiverEl) {
-                receiverEl.textContent = stats.device_type || '';
-            }
 
-            const rx = document.getElementById('rx-status');
             if (!stats.decoder_running) {
-                rx.className = 'rx stopped';
-                rx.textContent = stats.decoder_error ? 'NO SDR DEVICE' : 'DECODER STOPPED';
-                rx.title = stats.decoder_error || '';
-                decoderEl.className = 'decoder-bad';
-                decoderEl.textContent = '● ' + (stats.decoder_error || 'Decoder stopped');
+                receiverState = ['decoder-bad', stats.decoder_error ? 'NO SDR DEVICE' : 'DECODER STOPPED', stats.decoder_error || ''];
             } else if (!stats.receiver_online) {
-                rx.className = 'rx offline';
-                rx.textContent = 'NO FLEX FRAMES';
-                rx.title = 'The decoder runs but has not decoded any FLEX frames recently - check the antenna, gain and ppm';
-                decoderEl.className = 'decoder-warn';
-                decoderEl.textContent = '● DECODER RUNNING · NO FRAMES';
+                receiverState = ['decoder-warn', 'NO FLEX FRAMES',
+                    'The decoder runs but has not decoded any FLEX frames recently - check the antenna, gain and ppm'];
             } else {
-                rx.className = 'rx online';
-                rx.textContent = 'RX ONLINE';
-                rx.title = '';
-                decoderEl.className = 'decoder-ok';
-                decoderEl.textContent = '● DECODER RUNNING';
+                receiverState = ['decoder-ok', 'RX ONLINE', 'Receiving FLEX frames; live connection to the add-on'];
             }
+            renderStatus();
 
             lastStartTime = stats.start_time;
             renderUptime();
@@ -3976,8 +3957,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             evtSource = new EventSource(streamUrl());
             evtSource.onopen = () => {
                 lastStreamActivity = Date.now();
-                streamStatusEl.className = 'conn live';
-                streamStatusText.textContent = 'Live';
+                streamState = '';
+                renderStatus();
             };
             evtSource.onmessage = (e) => {
                 lastStreamActivity = Date.now();
@@ -3985,8 +3966,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             };
             evtSource.addEventListener('ping', () => { lastStreamActivity = Date.now(); });
             evtSource.onerror = () => {
-                streamStatusEl.className = 'conn reconnecting';
-                streamStatusText.textContent = 'Reconnecting…';
+                streamState = 'RECONNECTING…';
+                renderStatus();
                 // A rejected reconnect (e.g. while Home Assistant renews the
                 // ingress session) makes the browser give up for good: retry
                 const source = evtSource;

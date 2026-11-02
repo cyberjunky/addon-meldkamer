@@ -8,6 +8,7 @@
 - A hint on the Console while the capcodes, places or streets are not imported yet, with a button to Settings.
 - The map shows your home (from Home Assistant's home zone).
 - Console: a search box (press `/`) searches all stored messages, not just the live list; P1/P2/P3+ and discipline chips narrow the list; "Older messages" at the bottom loads earlier messages from the database. Previous/Next and the keyboard walk the list as shown.
+- Top and bottom bar no longer show the same things twice. The top bar keeps MELDKAMER P2000 FLEX, the views, the sensor filter, the toggles and the clock; the receiver status and the MSG/h, FRAMES/min and INCIDENTS counters moved to the bottom bar. The receiver status and the live connection are one status there: the receiver's state while connected, "Connecting…" or "Reconnecting…" when the dashboard has no live connection.
 
 ## 1.3.0
 
