@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A street found by its ending (-straat, -weg, -laan, …) when it isn't in the Streets table no longer takes in the codes and words before it: "P 1 BNH-01 Woningbrand Kerkstraat" gives "Kerkstraat" instead of "1 BNH-01 Woningbrand Kerkstraat", and "A2 AMBU 17142 2e Middellandstraat" gives "2e Middellandstraat".
+
 ## 1.4.3
 
 **After updating:** nothing to do. New abbreviations and spoken-text rules are added on the first start; your own edits are kept.
