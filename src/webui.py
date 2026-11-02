@@ -165,6 +165,9 @@ class WebUI:
         self.ha_client = ha_client
         self.app = web.Application(client_max_size=MAX_REQUEST_SIZE)
         self.messages: deque = deque(maxlen=MAX_MESSAGES)
+        # Per sensor since start, for the Info tab: matches and the epoch time of the last one
+        self._sensor_matches: dict[str, int] = {}
+        self._sensor_last_match: dict[str, float] = {}
         self.stats_file = get_stats_file()
         self.stats = self._load_stats()
         self._last_stats_save = 0.0
@@ -222,6 +225,7 @@ class WebUI:
         self.app.router.add_get("/", self._handle_index)
         self.app.router.add_get("/api/messages", self._handle_messages)
         self.app.router.add_get("/api/messages/{id}", self._handle_message)
+        self.app.router.add_get("/api/stats/day", self._handle_day_stats)
         self.app.router.add_get("/api/sensors", self._handle_sensors)
         self.app.router.add_get("/api/stats", self._handle_stats)
         self.app.router.add_get("/api/stream", self._handle_stream)
@@ -336,6 +340,9 @@ class WebUI:
         """Add a new (already stored) P2000 message and update stats."""
         self.messages.appendleft(msg.to_dict())
         self.stats["total_messages"] += 1
+        for sensor in self.sensor_manager.get_matching_sensors(msg):
+            self._sensor_matches[sensor.name] = self._sensor_matches.get(sensor.name, 0) + 1
+            self._sensor_last_match[sensor.name] = time.time()
 
         # Track by region and discipline (split multi-discipline combos so each
         # discipline is counted individually instead of as a combined key)
@@ -456,8 +463,34 @@ class WebUI:
         return [m for m in messages if manager.matches(_DictMessageView(m), sensor)]
 
     async def _handle_sensors(self, request: web.Request) -> web.Response:
-        """List configured sensors, for the dashboard's filter toggle."""
-        return web.json_response([{"name": s.name, "icon": s.icon} for s in self.sensor_manager.sensors])
+        """The configured sensors with their filters and matches, for the filter bar and the Info tab."""
+        return web.json_response([self._sensor_info(s) for s in self.sensor_manager.sensors])
+
+    def _sensor_info(self, sensor) -> dict:
+        f = sensor.filters
+        filters = {
+            "disciplines": f.disciplines,
+            "cities": f.cities,
+            "capcodes": f.capcodes,
+            "priorities": f.priorities,
+            "region": f.region,
+            "zone": f.zone,
+            "text_contains": f.text_contains,
+        }
+        return {
+            "name": sensor.name,
+            "icon": sensor.icon,
+            "entity_id": sensor.entity_id,
+            "announce": sensor.announce,
+            "filters": {k: v for k, v in filters.items() if v},
+            "zone_radius_km": sensor.zone.radius_km if sensor.zone else None,
+            "matches": self._sensor_matches.get(sensor.name, 0),
+            "last_match": self._sensor_last_match.get(sensor.name),
+        }
+
+    async def _handle_day_stats(self, request: web.Request) -> web.Response:
+        """Messages of the last 24 hours per hour, discipline and town, for the Info tab."""
+        return web.json_response(self.database.day_stats())
 
     async def _handle_messages(self, request: web.Request) -> web.Response:
         """The live message list, or with search/before a page of older messages from the database.
@@ -1818,6 +1851,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
         .info-row:last-child { border-bottom: none; }
         .reception { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px 32px; }
+        /* Info tab: last 24 hours and the sensors */
+        .day-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: 12px 32px; margin: 14px 0 6px; }
+        .day-disciplines { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 12.5px; color: var(--secondary-text-color); }
+        .day-disciplines b { color: var(--primary-text-color); font-family: var(--mono); font-weight: 500; }
+        .day-place { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12.5px; }
+        .day-place .name { flex: 0 0 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .day-place .meter { flex: 1; height: 8px; background: var(--ha-background); border-radius: 4px; overflow: hidden; }
+        .day-place .meter i { display: block; height: 100%; background: var(--primary-color); }
+        .day-place .count { font-family: var(--mono); font-size: 12px; min-width: 28px; text-align: right; }
+        .sensors-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .sensors-table th, .sensors-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--divider-color); vertical-align: top; }
+        .sensors-table th { color: var(--secondary-text-color); font-weight: 500; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+        .sensors-table td.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
         .info-label { color: var(--secondary-text-color); }
         .info-value { color: var(--primary-text-color); font-family: var(--mono); font-size: 13.5px; text-align: right; }
 
@@ -1984,6 +2030,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             .ticker { grid-template-columns: repeat(2, minmax(0, 1fr)); height: auto; }
             .feed-head, .feed-row { grid-template-columns: 58px 42px minmax(0, 1fr); }
             .feed-head .disc-col, .feed-row .disc, .feed-head .place-col, .feed-row .place { display: none; }
+            .day-grid { grid-template-columns: 1fr; }
         }
         /* Phones: the top bar wraps into two rows - view tabs, then status, filter and toggles */
         .tab-icon { display: none; }
@@ -2128,6 +2175,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <div class="info-row"><span class="info-label">Type</span><span class="info-value" id="info-device">-</span></div>
                         <div class="info-row"><span class="info-label">Driver</span><span class="info-value" id="info-driver">-</span></div>
                         <div class="info-row"><span class="info-label">Status</span><span class="info-value" id="info-status">-</span></div>
+                    </div>
+                </div>
+
+                <div class="panel info-card">
+                    <div class="panel-body">
+                        <h3>Locations</h3>
                         <div class="info-row"><span class="info-label">Geocoding</span><span class="info-value" id="info-geocoding">-</span></div>
                         <div class="info-row"><span class="info-label">OpenCage quota</span><span class="info-value" id="info-geocode-quota">-</span></div>
                         <div class="info-row"><span class="info-label">Geocoding skipped</span><span class="info-value" id="info-geocode-skipped">-</span></div>
@@ -2175,6 +2228,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     <h3>Statistics</h3>
                     <div class="info-row"><span class="info-label">Total messages</span><span class="info-value" id="info-total">0</span></div>
                     <div class="info-row"><span class="info-label">Session uptime</span><span class="info-value" id="info-uptime">-</span></div>
+                    <div class="day-grid">
+                        <div>
+                            <div class="chart-title">Messages per hour, last 24 hours</div>
+                            <div id="day-chart"></div>
+                            <div id="day-disciplines" class="day-disciplines"></div>
+                        </div>
+                        <div>
+                            <div class="chart-title">Busiest towns, last 24 hours</div>
+                            <div id="day-places"></div>
+                        </div>
+                    </div>
                     <div class="stats-charts-grid">
                         <div>
                             <div class="chart-title">By region
@@ -2189,6 +2253,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                             <div id="discipline-chart"></div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="panel info-card stats-panel" style="margin-top: 14px;">
+                <div class="panel-body">
+                    <h3>Sensors</h3>
+                    <div id="sensors-table"></div>
                 </div>
             </div>
 
@@ -2985,7 +3056,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tabName));
             localStorage.setItem('p2000_tab', tabName);
-            if (tabName === 'info') loadReceiver();
+            if (tabName === 'info') { loadReceiver(); loadDayStats(); }
             if (VIEWS.includes(tabName)) {
                 activeView = tabName;
                 document.getElementById('slot-' + tabName).appendChild(document.getElementById('map-root'));
@@ -3148,6 +3219,75 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 `<line x1="0" y1="${height}" x2="${width}" y2="${height}" stroke="var(--divider-color)"/>${bars}` +
                 `<text x="0" y="${height + 13}" font-size="10" fill="var(--secondary-text-color)">-60 min</text>` +
                 `<text x="${width}" y="${height + 13}" font-size="10" text-anchor="end" fill="var(--secondary-text-color)">now · max ${max}/min</text></svg>`;
+        }
+
+        // Info tab: the last 24 hours and the sensors, refreshed while the tab is open
+        let dayTimer = null;
+        function loadDayStats() {
+            clearTimeout(dayTimer);
+            if (!document.querySelector('#tab-info.active')) return;
+            Promise.all([
+                fetch(basePath + 'api/stats/day').then(r => r.json()),
+                fetch(basePath + 'api/sensors').then(r => r.json()),
+            ]).then(([day, sensors]) => { renderDayStats(day); renderSensorsTable(sensors); })
+                .catch(() => {})
+                .finally(() => { dayTimer = setTimeout(loadDayStats, 60000); });
+        }
+
+        function renderDayStats(day) {
+            const el = document.getElementById('day-chart');
+            const hours = day.hours || [];
+            if (!hours.length || !day.total) {
+                el.innerHTML = '<div class="empty-state" style="padding: 20px;">No messages in the last 24 hours</div>';
+            } else {
+                const width = 600, height = 120, slot = width / hours.length;
+                const max = Math.max(1, ...hours.map(h => h.count));
+                const bars = hours.map((h, i) => {
+                    const x = i * slot;
+                    const bh = Math.max(h.count ? 2 : 0, h.count / max * (height - 4));
+                    const r = Math.min(2, bh);
+                    const label = new Date(h.hour).toLocaleTimeString([], {timeStyle: 'short'});
+                    return `<g><title>${escapeHtml(label)}: ${h.count} messages</title>` +
+                        `<rect x="${x}" y="0" width="${slot}" height="${height}" fill="transparent"/>` +
+                        `<path d="M${x + 1},${height} v${r - bh} q0,${-r} ${r},${-r} h${slot - 2 - 2 * r} q${r},0 ${r},${r} v${bh - r} z" fill="var(--primary-color)"/></g>`;
+                }).join('');
+                el.innerHTML = `<svg viewBox="0 0 ${width} ${height + 16}" style="width:100%;height:auto;display:block;">` +
+                    `<line x1="0" y1="${height}" x2="${width}" y2="${height}" stroke="var(--divider-color)"/>${bars}` +
+                    `<text x="0" y="${height + 13}" font-size="10" fill="var(--secondary-text-color)">-24 h</text>` +
+                    `<text x="${width}" y="${height + 13}" font-size="10" text-anchor="end" fill="var(--secondary-text-color)">now · ${day.total} messages · max ${max}/h</text></svg>`;
+            }
+            const d = day.disciplines || {};
+            document.getElementById('day-disciplines').innerHTML = LANES
+                .map(([kind, label]) => `<span><span class="disc ${kind}"></span> ${label} <b>${d[kind] || 0}</b></span>`).join('');
+            const places = day.places || [];
+            const top = Math.max(1, ...places.map(p => p[1]));
+            document.getElementById('day-places').innerHTML = places.length
+                ? places.map(([city, n]) => `<div class="day-place"><span class="name" title="${escapeHtml(city)}">${escapeHtml(city)}</span><span class="meter"><i style="width:${Math.round(n / top * 100)}%"></i></span><span class="count">${n}</span></div>`).join('')
+                : '<div class="empty-state" style="padding: 20px;">No towns recognised yet</div>';
+        }
+
+        function sensorFilterSummary(s) {
+            const f = s.filters || {};
+            const parts = [];
+            if (f.disciplines) parts.push(f.disciplines.join(', '));
+            if (f.priorities) parts.push(f.priorities.join(', '));
+            if (f.cities) parts.push(f.cities.join(', '));
+            if (f.region) parts.push('region ' + f.region);
+            if (f.capcodes) parts.push(`${f.capcodes.length} capcode${f.capcodes.length > 1 ? 's' : ''}`);
+            if (f.zone) parts.push(f.zone + (typeof s.zone_radius_km === 'number' ? ` (${s.zone_radius_km.toFixed(1)} km)` : ' (not found in Home Assistant)'));
+            if (f.text_contains) parts.push(`text "${f.text_contains}"`);
+            return parts.length ? parts.join(' · ') : 'every message';
+        }
+
+        function renderSensorsTable(sensors) {
+            const el = document.getElementById('sensors-table');
+            if (!sensors.length) {
+                el.innerHTML = '<div class="panel-sub">No sensors configured. Define them under <code>sensors</code> in the add-on configuration (see the README).</div>';
+                return;
+            }
+            el.innerHTML = '<table class="sensors-table"><thead><tr><th>Sensor</th><th>Entity</th><th>Filters</th><th>Announce</th><th class="num">Matches</th><th class="num">Last match</th></tr></thead><tbody>' +
+                sensors.map(s => `<tr><td>${escapeHtml(s.name)}</td><td class="mono">sensor.${escapeHtml(s.entity_id || '')}</td><td>${escapeHtml(sensorFilterSummary(s))}</td><td>${s.announce ? 'yes' : '—'}</td><td class="num">${s.matches || 0}</td><td class="num">${formatAgo(s.last_match)}</td></tr>`).join('') +
+                '</tbody></table><div class="panel-sub" style="margin-top: 8px;">Matches are counted since the add-on started. Sensors are set up under <code>sensors</code> in the add-on configuration; a change needs a restart.</div>';
         }
 
         let receiverTimer = null;
