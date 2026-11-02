@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.4.3
+
+**After updating:** nothing to do. New abbreviations and spoken-text rules are added on the first start; your own edits are kept.
 
 - Precise positions from a full postcode: a message with "3068HA" is placed at that postcode's centre (a few houses), looked up once at the free PDOK Locatieserver and kept in the geocode cache. Comes before the street position and OpenCage; shown as "Postcode" in the detail and counted for the distance from home.
 - Incident type recognised from the text (brand, automatische melding, verkeersongeval, medisch, waterongeval, gas/stank, liftopsluiting, storm, dier, hulpverlening, GRIP): shown in the detail, filterable with chips on the Console, usable in sensors with `incident_types`, and in the event and MQTT attributes as `incident_type`/`incident_label`. Older messages get it too.
