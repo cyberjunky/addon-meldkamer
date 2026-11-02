@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The 💬 browser-notification toggle now says what to do when the browser blocked notifications (lock icon → Notifications → Allow) or hid the permission prompt behind the bell icon in the address bar, instead of one "blocked" message for both.
+
 ## 1.4.1
 
 **After updating:** run **Import BAG** again for your provinces (Data → Streets): it completes the postcodes of Amsterdam, Rotterdam and The Hague and merges streets that BAG listed in two spellings.

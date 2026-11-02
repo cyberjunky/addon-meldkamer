@@ -2940,9 +2940,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 toast('This browser has no notifications here (they need HTTPS or localhost)', 'error');
                 return;
             }
+            if (Notification.permission === 'denied') {
+                toast('Notifications are blocked for the Home Assistant site: click the lock icon in the address bar, set Notifications to Allow, then try again', 'error');
+                return;
+            }
             Notification.requestPermission().then(permission => {
+                if (permission === 'denied') {
+                    toast('Notifications were blocked: click the lock icon in the address bar, set Notifications to Allow, then try again', 'error');
+                    return;
+                }
                 if (permission !== 'granted') {
-                    toast('Notifications are blocked for this site in the browser settings', 'error');
+                    // Chrome and Edge can hide the prompt behind an icon in the address bar
+                    toast('No permission yet: the browser hid the prompt - look for the notification (bell) icon at the right of the address bar and allow it', 'error');
                     return;
                 }
                 notifyEnabled = true;
