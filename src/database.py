@@ -11,6 +11,7 @@ import shutil
 import sqlite3
 import threading
 import time
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -291,6 +292,16 @@ class Database:
             self._text_caches.clear()
 
     @staticmethod
+    def fold_accents(text: str) -> str:
+        """Drop accents ("Belgiëlaan" -> "Belgielaan", "Röellstraat" -> "Roellstraat").
+
+        P2000 messages are sent without accents, while BAG street and place names have them,
+        so names and message text are compared without.
+        """
+        decomposed = unicodedata.normalize("NFKD", text)
+        return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+    @staticmethod
     def _first_word_key(name: str) -> str | None:
         """Lowercased leading word of a name, used as prefilter index key."""
         match = re.match(r"\w+", name)
@@ -332,7 +343,8 @@ class Database:
             name = name_of(row)
             if not name or len(name) < min_length:
                 continue
-            item = {"order": order, "row": row, "escaped": re.escape(name)}
+            name = self.fold_accents(name)
+            item = {"order": order, "row": row, "escaped": re.escape(name), "folded": name.lower()}
             order += 1
             key = self._first_word_key(name)
             if key:
@@ -341,14 +353,14 @@ class Database:
                 fallback.append(item)
         return {"index": index, "fallback": fallback}
 
-    @staticmethod
-    def _match_candidates(cache_part: dict[str, Any], text: str) -> list[dict]:
+    @classmethod
+    def _match_candidates(cls, cache_part: dict[str, Any], text: str) -> list[dict]:
         """Collect candidate entries whose first word appears in the text.
 
         Candidates keep the original row order so the first pattern hit
         matches the previous per-row scan semantics.
         """
-        words = set(re.findall(r"\w+", text.lower()))
+        words = set(re.findall(r"\w+", cls.fold_accents(text).lower()))
         candidates = [item for word in words for item in cache_part["index"].get(word, ())]
         candidates.extend(cache_part["fallback"])
         candidates.sort(key=lambda item: item["order"])
@@ -650,7 +662,7 @@ class Database:
         'S-HERTOGENBOSCH compare equal), surrounding punctuation, extra
         whitespace and case.
         """
-        city = city.replace("'", "").replace("\u2019", "")
+        city = Database.fold_accents(city.replace("'", "").replace("\u2019", ""))
         return " ".join(city.split()).strip(".,;:!?()").casefold()
 
     def find_city_name(self, city: str) -> str | None:
@@ -690,6 +702,7 @@ class Database:
         Returns dict with 'city', 'matched_text' (what was found), and 'remaining_text' (text without city).
         """
         cache = self._get_text_cache("places", "places", self._build_places_cache)
+        text = self.fold_accents(text)  # names in the cache are compared without accents
 
         # First try to match city abbreviations (like HELMOND, ROTTDM, etc.)
         # These are uppercase abbreviations
@@ -725,20 +738,21 @@ class Database:
             city: Only match streets of this place (the town already found in the message), so a
                 street of the same name elsewhere can't supply the postcode
         """
-        excluded_lower = [w.lower() for w in (excluded_words or [])]
+        excluded_lower = [self.fold_accents(w).lower() for w in (excluded_words or [])]
         city_lower = city.lower() if city else None
         cache = self._get_text_cache("streets", "streets", self._build_streets_cache)
+        text = self.fold_accents(text)  # BAG names have accents, P2000 messages don't
 
         for item in self._match_candidates(cache, text):
             row = item["row"]
             street_name = row[0]
 
-            # Skip if street name is in excluded words (like a city name)
-            if street_name.lower() in excluded_lower:
-                continue
-
             # Skip streets of other places once the message's town is known
             if city_lower and (row[1] or "").lower() != city_lower:
+                continue
+
+            # Skip if street name is in excluded words (like a city name)
+            if item["folded"] in excluded_lower:
                 continue
 
             # Use word boundary matching instead of substring matching
