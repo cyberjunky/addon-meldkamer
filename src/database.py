@@ -448,29 +448,8 @@ class Database:
             self._rebuild_table_with_id("places", ["city", "abbreviation", "province", "latitude", "longitude"])
             self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
             self._ensure_unique_streets()
-            self._run_data_fixes()
         except sqlite3.Error as e:
             logger.error(f"Schema migration failed: {e}")
-
-    # Bump when a one-time fix of existing data is added to _run_data_fixes
-    DATA_VERSION = 1
-
-    def _run_data_fixes(self) -> None:
-        """One-time repairs of data written by older versions, each run once per database.
-
-        PRAGMA user_version remembers how far a database got, so a restored
-        older backup is repaired again and a current database isn't scanned.
-        """
-        version = self._conn.execute("PRAGMA user_version").fetchone()[0]
-        if version >= self.DATA_VERSION:
-            return
-        if version < 1:
-            # Before 1.4.0 the BAG import stored some streets in two spellings
-            merged = self.merge_case_duplicate_streets()
-            if merged:
-                logger.info(f"Merged {merged} streets that only differed in capitalisation")
-        self._conn.execute(f"PRAGMA user_version = {self.DATA_VERSION}")
-        self._conn.commit()
 
     def _table_sql(self, table: str) -> str:
         """Return the CREATE TABLE statement for a table from SCHEMA."""
@@ -527,7 +506,9 @@ class Database:
 
         BAG has some streets in two spellings. Per place, the variant with a position is kept
         (the oldest one if several have it), it takes over a postcode it lacks from another
-        variant, and the others are removed. Returns the number of streets removed.
+        variant, and the others are removed. Runs at the end of a province import, so streets stored
+        in two spellings by versions before 1.4.0 are merged when the province is imported
+        again. Returns the number of streets removed.
         """
         with self._lock:
             rows = self._conn.execute(
