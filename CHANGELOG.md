@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- The 💬 browser-notification toggle now says what to do when the browser blocked notifications (lock icon → Notifications → Allow) or hid the permission prompt behind the bell icon in the address bar, instead of one "blocked" message for both.
+- The map library (Leaflet) is bundled with the add-on instead of loaded from the unpkg CDN. Browsers with strict tracking protection (Edge, Brave) blocked that download and showed no map; the dashboard now needs no internet access for its own interface.
+- The 💬 browser-notification toggle now says what to do when the browser blocked notifications (lock icon → Notifications → Allow) or hid the permission prompt behind the bell icon in the address bar, instead of one "blocked" message for both, and that notifications need Home Assistant over HTTPS (a plain http:// LAN address is refused by the browser without a prompt).
 
 ## 1.4.1
 

@@ -53,6 +53,9 @@ def _addon_version() -> str:
 
 ADDON_VERSION = _addon_version()
 
+# Front-end libraries bundled with the add-on (see static/vendor/README.md)
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
 # The dashboard's map tiles come from Home Assistant's built-in map_tiles proxy:
 # browsers loading tiles straight from OpenStreetMap inside the ingress iframe
 # get 403 "Access blocked", and core identifies its requests the way OSM's
@@ -226,6 +229,7 @@ class WebUI:
     def _setup_routes(self) -> None:
         """Set up web routes."""
         self.app.router.add_get("/", self._handle_index)
+        self.app.router.add_static("/static/", STATIC_DIR, name="static")
         self.app.router.add_get("/api/messages", self._handle_messages)
         self.app.router.add_get("/api/messages/{id}", self._handle_message)
         self.app.router.add_get("/api/stats/day", self._handle_day_stats)
@@ -421,7 +425,10 @@ class WebUI:
         self.stats["db_geocodes"] = geocodes
 
     async def _handle_index(self, request: web.Request) -> web.Response:
-        html = DASHBOARD_HTML.replace("__ADDON_VERSION__", ADDON_VERSION)
+        # Behind Home Assistant ingress the dashboard lives under X-Ingress-Path; the
+        # <link>/<script> tags in the head can't compute that like the JS does
+        base = request.headers.get("X-Ingress-Path", "").rstrip("/")
+        html = DASHBOARD_HTML.replace("__ADDON_VERSION__", ADDON_VERSION).replace("__BASE__", base)
         return web.Response(
             text=html,
             content_type="text/html",
@@ -1476,9 +1483,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <title>Meldkamer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <link rel="stylesheet" href="__BASE__/static/vendor/leaflet/leaflet.css"/>
+    <script src="__BASE__/static/vendor/leaflet/leaflet.js"></script>
+    <script src="__BASE__/static/vendor/leaflet-heat/leaflet-heat.js"></script>
     <style>
         /* Dark palette by default; light when Home Assistant (or, outside it,
            the system) uses a light theme - see applyTheme() */
@@ -2936,8 +2943,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 initNotifyToggle();
                 return;
             }
-            if (!('Notification' in window)) {
-                toast('This browser has no notifications here (they need HTTPS or localhost)', 'error');
+            if (!('Notification' in window) || !window.isSecureContext) {
+                // Chromium answers "denied" without a prompt on plain http:// LAN addresses
+                toast('Notifications need Home Assistant over HTTPS (or localhost): open it via your HTTPS address, or allow this address under edge://flags or chrome://flags "Insecure origins treated as secure"', 'error');
                 return;
             }
             if (Notification.permission === 'denied') {
