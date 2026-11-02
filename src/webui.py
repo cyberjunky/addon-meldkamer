@@ -491,6 +491,7 @@ class WebUI:
             "region": f.region,
             "zone": f.zone,
             "text_contains": f.text_contains,
+            "incident_types": f.incident_types,
         }
         return {
             "name": sensor.name,
@@ -2201,6 +2202,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                             <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'disc', 'politie')">Politie</button>
                             <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'disc', 'other')">Other</button>
                         </div>
+                        <div class="tabs" role="group" aria-label="Incident type">
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'type', 'fire')">Brand</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'type', 'alarm')" title="Automatische brandmelding (OMS)">Alarm</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'type', 'traffic')">Ongeval</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'type', 'medical')">Medisch</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'type', 'other')" title="Water, gas, lift, dier, storm, hulpverlening, GRIP or no type">Other</button>
+                        </div>
                         <span id="feed-status" class="feed-status">live</span>
                     </div>
                     <div class="feed-head"><span>Time</span><span>Prio</span><span class="disc-col">Discipline</span><span>Message</span><span class="place-col">Location</span><span class="unit">Unit</span></div>
@@ -3395,6 +3403,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (f.capcodes) parts.push(`${f.capcodes.length} capcode${f.capcodes.length > 1 ? 's' : ''}`);
             if (f.zone) parts.push(f.zone + (typeof s.zone_radius_km === 'number' ? ` (${s.zone_radius_km.toFixed(1)} km)` : ' (not found in Home Assistant)'));
             if (f.text_contains) parts.push(`text "${f.text_contains}"`);
+            if (f.incident_types) parts.push('type ' + f.incident_types.join('/'));
             return parts.length ? parts.join(' · ') : 'every message';
         }
 
@@ -3473,7 +3482,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const unmatchedCapcodes = (msg.capcodes || []).filter(c => !matchedCapcodes.has(c));
 
             const geocodeLevel = (msg.latitude && msg.longitude)
-                ? (msg.location_accuracy === 'street' ? 'Street' : (msg.location_accuracy === 'city' ? 'City' : 'Unknown'))
+                ? ({postcode: 'Postcode', street: 'Street', city: 'City'}[msg.location_accuracy] || 'Unknown')
                 : '—';
             const hasDistance = msg.distance_km !== null && msg.distance_km !== undefined;
 
@@ -3484,6 +3493,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 ['Geocode', geocodeLevel],
                 msg.repeats ? ['Repeats', `resent ${msg.repeats} times`] : null,
                 Array.isArray(msg.sensors) ? ['Sensors', msg.sensors.length ? msg.sensors.join(', ') : 'none', true] : null,
+                (msg.incident_label || msg.direct_deployment) ? ['Type', [msg.incident_label, msg.direct_deployment ? 'directe inzet' : ''].filter(Boolean).join(' · ')] : null,
+                msg.talk_group ? ['Talk group', msg.talk_group] : null,
+                (msg.ride_number || msg.bon_number || msg.incident_number) ? ['Reference', [msg.ride_number && 'rit ' + msg.ride_number, msg.bon_number && 'bon ' + msg.bon_number, msg.incident_number && 'icnum ' + msg.incident_number].filter(Boolean).join(' · ')] : null,
                 ['Address', msg.address || msg.city || '—', true],
                 unmatchedCapcodes.length > 0 ? ['Capcodes', unmatchedCapcodes.join(' '), true] : null,
                 ['Receivers', msg.receivers || '—', true],
@@ -3929,6 +3941,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         let consoleShown = [];
         const feedPrio = new Set();
         const feedDisc = new Set();
+        const feedType = new Set();
+
+        function typeKind(msg) {
+            return ['fire', 'alarm', 'traffic', 'medical'].includes(msg.incident_type) ? msg.incident_type : 'other';
+        }
 
         function prioKind(msg) {
             return msg.priority === 1 ? 'p1' : (msg.priority === 2 ? 'p2' : 'other');
@@ -3942,11 +3959,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         function consoleList() {
             return feedBase().filter(m =>
-                (!feedPrio.size || feedPrio.has(prioKind(m))) && (!feedDisc.size || feedDisc.has(discKind(m))));
+                (!feedPrio.size || feedPrio.has(prioKind(m))) && (!feedDisc.size || feedDisc.has(discKind(m)))
+                && (!feedType.size || feedType.has(typeKind(m))));
         }
 
         function toggleFeedChip(btn, group, value) {
-            const set = group === 'prio' ? feedPrio : feedDisc;
+            const set = {prio: feedPrio, disc: feedDisc, type: feedType}[group];
             if (set.has(value)) set.delete(value); else set.add(value);
             btn.classList.toggle('active', set.has(value));
             renderConsole();

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Precise positions from a full postcode: a message with "3068HA" is placed at that postcode's centre (a few houses), looked up once at the free PDOK Locatieserver and kept in the geocode cache. Comes before the street position and OpenCage; shown as "Postcode" in the detail and counted for the distance from home.
+- Incident type recognised from the text (brand, automatische melding, verkeersongeval, medisch, waterongeval, gas/stank, liftopsluiting, storm, dier, hulpverlening, GRIP): shown in the detail, filterable with chips on the Console, usable in sensors with `incident_types`, and in the event and MQTT attributes as `incident_type`/`incident_label`. Older messages get it too.
+- Reference numbers (rit, bon, icnum), the meldkamer talk group ("BAD-02") and "Directe inzet: ja" are separate fields (`ride_number`, `bon_number`, `incident_number`, `talk_group`, `direct_deployment`), shown in the detail. A vehicle named with its type ("ambu 16-107") supplies the region when the capcodes don't.
+- Spoken text: "hind." and "ass." are read in full, as are ivm, tbv, evt, VKO, OMS, BMI, AED, TS, HW and HV; road numbers are spoken as "N 209" / "A 27".
 - Fixed: abbreviation tags matched ordinary lowercase words. "bon 170616" was tagged as Brandweer Oost-Nederland, "rit:" as Rampen identificatie team, "me" as Mobiele Eenheid, "ab" as Adembescherming. A code now only matches when written as the code itself ("OvD") or in capitals.
 - New abbreviations: AMB, MKA, MKB, MKP (meldkamers), VKO (verkeersongeval), BMI (brandmeldinstallatie), AED, RV (redvoertuig), ZGB (zeer grote brand), ALS. Added to existing installs on the next start.
 - Ambulance numbers written in lower case ("ambu 16-107") are recognised as vehicles too.

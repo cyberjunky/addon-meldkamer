@@ -120,6 +120,7 @@ schema:
       capcodes: str?
       priorities: str?
       text_contains: str?
+      incident_types: str?
       region: str?
       zone: 'match(^(zone\.[a-z0-9_]+)?$)?'
       announce: bool?
