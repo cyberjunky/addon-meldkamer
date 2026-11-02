@@ -680,7 +680,9 @@ class Database:
 
         return None
 
-    def match_street_in_text(self, text: str, excluded_words: list[str] | None = None) -> dict[str, str] | None:
+    def match_street_in_text(
+        self, text: str, excluded_words: list[str] | None = None, city: str | None = None
+    ) -> dict[str, str] | None:
         """
         Try to find a known street name in the text using word boundary matching.
         Returns dict with 'street' and 'city' if found.
@@ -688,8 +690,11 @@ class Database:
         Args:
             text: The text to search in
             excluded_words: Words to exclude from street matching (e.g. already matched city names)
+            city: Only match streets of this place (the town already found in the message), so a
+                street of the same name elsewhere can't supply the postcode
         """
         excluded_lower = [w.lower() for w in (excluded_words or [])]
+        city_lower = city.lower() if city else None
         cache = self._get_text_cache("streets", "streets", self._build_streets_cache)
 
         for item in self._match_candidates(cache, text):
@@ -698,6 +703,10 @@ class Database:
 
             # Skip if street name is in excluded words (like a city name)
             if street_name.lower() in excluded_lower:
+                continue
+
+            # Skip streets of other places once the message's town is known
+            if city_lower and (row[1] or "").lower() != city_lower:
                 continue
 
             # Use word boundary matching instead of substring matching
