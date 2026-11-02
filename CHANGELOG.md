@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: abbreviation tags matched ordinary lowercase words. "bon 170616" was tagged as Brandweer Oost-Nederland, "rit:" as Rampen identificatie team, "me" as Mobiele Eenheid, "ab" as Adembescherming. A code now only matches when written as the code itself ("OvD") or in capitals.
+- New abbreviations: AMB, MKA, MKB, MKP (meldkamers), VKO (verkeersongeval), BMI (brandmeldinstallatie), AED, RV (redvoertuig), ZGB (zeer grote brand), ALS. Added to existing installs on the next start.
+- Ambulance numbers written in lower case ("ambu 16-107") are recognised as vehicles too.
+
 ## 1.4.2
 
 **After updating:** nothing to do. Browser notifications need Home Assistant over HTTPS; on a plain http:// address the browser refuses them without asking.

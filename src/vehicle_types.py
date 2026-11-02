@@ -93,9 +93,15 @@ DEFAULT_ICON = "📻"
 # bare run of digits as commonly seen for ambulance units (e.g. "AMBU 17106").
 # Longer codes (AL-42, ...) are tried first so e.g. "AL-42" isn't matched as
 # bare "AL", and the dashed number form is tried before the bare-digits one.
+# Ambulance ritmeldingen write the type in lower case or capitalised ("ambu 16-107", "Ambu")
+_VEHICLE_WORDS = dict(VEHICLE_CATEGORIES)
+for _key, _category in VEHICLE_CATEGORIES.items():
+    if _category == "ambulance":
+        _VEHICLE_WORDS[_key.lower()] = _category
+        _VEHICLE_WORDS[_key.capitalize()] = _category
 _VEHICLE_NUMBER_RE = re.compile(
     r"\b("
-    + "|".join(re.escape(k) for k in sorted(VEHICLE_CATEGORIES, key=len, reverse=True))
+    + "|".join(re.escape(k) for k in sorted(_VEHICLE_WORDS, key=len, reverse=True))
     + r")\s+(?:-\s+)?(\d{2,4}-\d{3,4}|\d{3,6})\b"
 )
 
@@ -196,8 +202,7 @@ def _normalize_number(number: str) -> str:
 def named_vehicles(text: str) -> list[tuple[str, str]]:
     """(number, category) for each vehicle the text names with its type, e.g. "TS 07-1782"."""
     return [
-        (_normalize_number(m.group(2)), VEHICLE_CATEGORIES[m.group(1)])
-        for m in _VEHICLE_NUMBER_RE.finditer(text or "")
+        (_normalize_number(m.group(2)), _VEHICLE_WORDS[m.group(1)]) for m in _VEHICLE_NUMBER_RE.finditer(text or "")
     ]
 
 
@@ -353,6 +358,7 @@ CATEGORY_STOCK_IMAGES: dict[str, str] = {
     "politie": "politie",
     "reddingboot": "reddingboot",
 }
+
 
 def stock_image_for(category: str) -> str:
     """Name of the bundled photo for a vehicle category ("" if none fits)."""

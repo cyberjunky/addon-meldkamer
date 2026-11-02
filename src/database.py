@@ -1759,7 +1759,9 @@ class Database:
         - see DISCIPLINE_ABBREVIATION_OVERRIDES.
         """
         found = []
-        words = text.upper().split()
+        # Codes are matched as written ("OvD") or fully in capitals ("OVD"): a lowercase
+        # word that happens to spell a code ("bon 170616", "rit:", "me", "ab") is a word
+        words = text.split()
         discipline_lower = (discipline or "").lower()
 
         def _resolve_text(code: str, default_text: str) -> str:
@@ -1776,10 +1778,11 @@ class Database:
 
             for word in words:
                 # Clean word of punctuation
-                clean = word.strip(".,;:!?()[]{}")
+                token = word.strip(".,;:!?()[]{}")
+                clean = token if token in all_abbrevs else (token.upper() if token.isupper() else token)
                 if clean in all_abbrevs:
                     found.append({"abbreviation": clean, "full_text": _resolve_text(clean, all_abbrevs[clean])})
-                elif "-" in clean:
+                elif "-" in clean and clean.isupper():
                     # Codes like BDH-03 / BON-01: prefix = meldkamer
                     # gespreksgroep, number = incidentkanaal
                     prefix, _, channel = clean.partition("-")
