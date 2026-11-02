@@ -42,6 +42,22 @@ def looks_like_street(name: str) -> bool:
     return any(lower.endswith(suffix) and len(lower) > len(suffix) + 2 for suffix in STREET_SUFFIXES)
 
 
+def city_shortname_tags(body: str) -> list[dict[str, str]]:
+    """Town shortnames in a message ("SGRAVH" for 's-Gravenhage) as abbreviation tags for the detail.
+
+    Same rule as the town search in _extract_address: one of the last 8 words,
+    4+ characters, not a number. The message text itself is shown as received.
+    """
+    tags: list[dict[str, str]] = []
+    for word in body.split()[-8:]:
+        if len(word) < 4 or word.isdigit():
+            continue
+        city = get_city_from_abbreviation(word)
+        if city and word.lower() != city.lower() and all(t["abbreviation"] != word for t in tags):
+            tags.append({"abbreviation": word, "full_text": city})
+    return tags
+
+
 # Priority detection patterns
 PRIO_PATTERNS = [
     (1, r"^A\s?1|\bA\s?1|PRIO\s?1|^P\s?1"),
