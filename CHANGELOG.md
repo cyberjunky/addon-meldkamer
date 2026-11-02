@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The message detail shows which of your sensors the message matched.
+- Links to a message: selecting one puts `#msg=<id>` in the URL, and opening the dashboard with such a hash shows that message, also when it has left the live list. The `meldkamer_message` event has a `dashboard_url` for this, usable as the `url` of a notification.
+- Keyboard: `j`/`k` or the arrow keys step through the messages, `1`/`2`/`3` switch between Console, Wallboard and Lanes, Escape closes the floating detail.
+- A hint on the Console while the capcodes, places or streets are not imported yet, with a button to Settings.
+- The map shows your home (from Home Assistant's home zone).
 - Top and bottom bar no longer show the same things twice. The top bar keeps MELDKAMER P2000 FLEX, the views, the sensor filter, the toggles and the clock; the receiver status and the MSG/h, FRAMES/min and INCIDENTS counters moved to the bottom bar. The receiver status and the live connection are one status there: the receiver's state while connected, "Connecting…" or "Reconnecting…" when the dashboard has no live connection.
 
 ## 1.3.0

@@ -104,6 +104,16 @@ class HAClient:
             return False
         return True
 
+    async def get_addon_slug(self) -> str | None:
+        """This add-on's slug from the Supervisor (e.g. "1a2b3c4d_meldkamer"), None when unavailable."""
+        try:
+            status, body = await self._request("GET", f"{SUPERVISOR_URL}/addons/self/info")
+        except HAClientError:
+            return None
+        if status != 200 or not isinstance(body, dict):
+            return None
+        return (body.get("data") or {}).get("slug") or None
+
     async def get_map_tile(self, z: int, x: int, y: int) -> bytes:
         """An OpenStreetMap raster tile from Home Assistant's map_tiles proxy."""
         try:

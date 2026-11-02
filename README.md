@@ -116,7 +116,7 @@ Access via Home Assistant sidebar → Meldkamer:
   - **Wallboard** — large map with live counts, incidents sorted by priority and a ticker of the newest messages; for an always-on screen
   - **Lanes** — one column per discipline (Brandweer, Ambulance, Politie, other) next to the map
 
-  The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list. Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech and auto-focus toggles sit in the top bar. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
+  The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list (or `j`/`k` and the arrow keys; `1`/`2`/`3` switch views, Escape closes the floating detail). Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech and auto-focus toggles sit in the top bar. The map shows your home (from Home Assistant's home zone) and the zones your sensors filter on. A message's detail lists which of your sensors it matched, and selecting a message puts `#msg=<id>` in the URL: open the dashboard with that hash (for example from a notification, see the `dashboard_url` event field) and it shows that message, also one that has already left the live list. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
 - **Settings** — Card-based data management for every table below
 - **Info** — Receiver, device and database status, reception quality and message statistics
 
@@ -360,7 +360,7 @@ With `sensors_enabled`, Meldkamer also publishes (every minute, and over MQTT wi
 
 With `ha_events: true` (default) Meldkamer fires on the Home Assistant event bus:
 
-- **`meldkamer_message`** for every new message, with all message fields (`body`, `tts`, `priority`, `discipline`, `capcodes`, `region`, `city`, `street`, `address`, `latitude`, `longitude`, `distance_km`, `incident_id`, …) plus `sensors`, the names of the sensors it matched.
+- **`meldkamer_message`** for every new message, with all message fields (`body`, `tts`, `priority`, `discipline`, `capcodes`, `region`, `city`, `street`, `address`, `latitude`, `longitude`, `distance_km`, `incident_id`, …) plus `sensors`, the names of the sensors it matched, and `dashboard_url`, a Home Assistant path (`/hassio/ingress/<addon>#msg=<id>`) that opens the dashboard on that message, for use as the `url` of a notification.
 - **`meldkamer_incident_escalated`** when a later message for an incident raises the GRIP level or priority, or alerts more units or disciplines: `incident_id`, `address`, `disciplines`, `units`, `priority`, `grip`, `message_count`, `reasons` and the new message's `body`.
 
 ```yaml

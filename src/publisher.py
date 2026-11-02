@@ -31,6 +31,8 @@ class Publisher:
         self._tasks: list[asyncio.Task] = []
         # Sensors that already got a message, so registration won't reset them to "Waiting for data..."
         self._published: set[str] = set()
+        # The dashboard's path in Home Assistant, for the dashboard_url in events (read from the Supervisor at start)
+        self.dashboard_path = ""
 
         if config.sensors_enabled and not ha_client.available and not config.mqtt_enabled:
             logger.warning("SUPERVISOR_TOKEN not found and MQTT disabled - sensors will not be published anywhere")
@@ -44,6 +46,10 @@ class Publisher:
     async def start(self) -> None:
         if self.mqtt_client:
             await self.mqtt_client.start()
+        if self.ha_client.available:
+            slug = await self.ha_client.get_addon_slug()
+            if slug:
+                self.dashboard_path = f"/hassio/ingress/{slug}"
         if self.config.sensors_enabled and self.sensor_manager.sensors and self.ha_client.available:
             self._tasks.append(asyncio.create_task(self._register_sensors()))
         if self.config.announce_enabled and self.ha_client.available:
@@ -112,7 +118,10 @@ class Publisher:
                 await self._publish_sensor(sensor, msg, opencage_info)
 
         if self.config.ha_events and self.ha_client.available:
-            await self.ha_client.fire_event(MESSAGE_EVENT, {**msg.to_dict(), "sensors": [s.name for s in sensors]})
+            event = {**msg.to_dict(), "sensors": [s.name for s in sensors]}
+            if self.dashboard_path and msg.id is not None:
+                event["dashboard_url"] = f"{self.dashboard_path}#msg={msg.id}"
+            await self.ha_client.fire_event(MESSAGE_EVENT, event)
             if escalation:
                 await self.ha_client.fire_event(
                     ESCALATION_EVENT, {**incident.to_dict(), "reasons": escalation, "body": msg.body}
