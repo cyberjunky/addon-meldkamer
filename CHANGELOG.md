@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.4.2
+
+**After updating:** nothing to do. Browser notifications need Home Assistant over HTTPS; on a plain http:// address the browser refuses them without asking.
 
 - Fixed: the Console's "Reference data not imported yet" hint stayed visible, with empty brackets, once everything was imported.
 - Town shortnames in a message ("SGRAVH", "ROTTDM") are shown as a tag in the message detail with the town they stand for, like the other abbreviations. The message text itself stays as received.
