@@ -1631,6 +1631,16 @@ class Database:
             logger.error(f"Failed to get messages: {e}")
             return []
 
+    def get_message_by_id(self, message_id: int) -> dict | None:
+        """One stored message by id (same shape as get_recent_messages), or None."""
+        try:
+            self.cursor.execute("SELECT * FROM messages WHERE id = ?", (message_id,))
+            row = self.cursor.fetchone()
+            return self._message_row_to_dict(row) if row else None
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get message {message_id}: {e}")
+            return None
+
     def get_message_count(self) -> int:
         """Get total number of stored messages."""
         try:

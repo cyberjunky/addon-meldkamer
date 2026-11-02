@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The message detail shows which of your sensors the message matched.
+- Links to a message: selecting one puts `#msg=<id>` in the URL, and opening the dashboard with such a hash shows that message, also when it has left the live list. The `meldkamer_message` event has a `dashboard_url` for this, usable as the `url` of a notification.
+- Keyboard: `j`/`k` or the arrow keys step through the messages, `1`/`2`/`3` switch between Console, Wallboard and Lanes, Escape closes the floating detail.
+- A hint on the Console while the capcodes, places or streets are not imported yet, with a button to Settings.
+- The map shows your home (from Home Assistant's home zone).
+
 ## 1.3.0
 
 ### Streets import

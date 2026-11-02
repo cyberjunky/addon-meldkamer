@@ -219,6 +219,7 @@ class WebUI:
         """Set up web routes."""
         self.app.router.add_get("/", self._handle_index)
         self.app.router.add_get("/api/messages", self._handle_messages)
+        self.app.router.add_get("/api/messages/{id}", self._handle_message)
         self.app.router.add_get("/api/sensors", self._handle_sensors)
         self.app.router.add_get("/api/stats", self._handle_stats)
         self.app.router.add_get("/api/stream", self._handle_stream)
@@ -355,6 +356,7 @@ class WebUI:
         """Stats plus the live receiver/decoder state, for the dashboard."""
         decoder = self.decoder
         geocoder = self.processor.geocoder
+        home = self.processor.home
         config = decoder.config
         return {
             **self.stats,
@@ -379,6 +381,9 @@ class WebUI:
             "geocode_rate_limited": geocoder.rate_limited,
             "geocode_only_sensor_matches": config.geocode_only_sensor_matches,
             "geocode_skipped": self.processor.geocode_skipped,
+            "home": (
+                {"latitude": home.latitude, "longitude": home.longitude, "radius_km": home.radius_km} if home else None
+            ),
             "sensor_zones": [
                 {
                     "name": s.name,
@@ -408,18 +413,23 @@ class WebUI:
             headers={"Cache-Control": "no-cache, must-revalidate"},
         )
 
-    def _with_fresh_abbreviations(self, messages: list[dict]) -> list[dict]:
-        """Re-derive each message's abbreviation tags from its body against the
-        current Texts glossary, instead of the frozen text captured at parse
-        time - so editing an abbreviation's meaning (e.g. "A2" from "geen
-        spoed" to "zonder spoed") is reflected immediately on already-received
-        messages, not just newly-decoded ones.
+    def _enrich(self, messages: list[dict]) -> list[dict]:
+        """Add what the dashboard shows but isn't stored with the message.
+
+        Abbreviation tags are re-derived from the body against the current
+        Texts glossary, so editing a meaning (e.g. "A2" from "geen spoed" to
+        "zonder spoed") shows on already-received messages too. "sensors"
+        lists the configured sensors the message matches (only present when
+        sensors are configured).
         """
+        manager = self.sensor_manager
         result = []
         for m in messages:
-            body = m.get("body")
-            if body:
-                m = {**m, "abbreviations": self.database.find_abbreviations_in_text(body, m.get("discipline", ""))}
+            m = {**m}
+            if m.get("body"):
+                m["abbreviations"] = self.database.find_abbreviations_in_text(m["body"], m.get("discipline", ""))
+            if manager.sensors:
+                m["sensors"] = [s.name for s in manager.get_matching_sensors(_DictMessageView(m))]
             result.append(m)
         return result
 
@@ -447,7 +457,20 @@ class WebUI:
 
     async def _handle_messages(self, request: web.Request) -> web.Response:
         messages = self._filter_by_sensor(list(self.messages), request.query.get("sensor", ""))
-        return web.json_response(self._with_fresh_abbreviations(messages))
+        return web.json_response(self._enrich(messages))
+
+    async def _handle_message(self, request: web.Request) -> web.Response:
+        """One message by id, for deep links (#msg=<id>) to messages no longer in the live list."""
+        try:
+            message_id = int(request.match_info["id"])
+        except ValueError:
+            raise _bad_request("Message id must be an integer") from None
+        message = next((m for m in self.messages if m.get("id") == message_id), None)
+        if message is None:
+            message = self.database.get_message_by_id(message_id)
+        if message is None:
+            return web.json_response({"error": "Message not found"}, status=404)
+        return web.json_response(self._enrich([message])[0])
 
     async def _handle_stats(self, request: web.Request) -> web.Response:
         return web.json_response(self._stats_payload())
@@ -463,7 +486,7 @@ class WebUI:
         try:
             while True:
                 latest = self._filter_by_sensor(list(self.messages), sensor_name)[:50]
-                data = json.dumps({"stats": self._stats_payload(), "latest": self._with_fresh_abbreviations(latest)})
+                data = json.dumps({"stats": self._stats_payload(), "latest": self._enrich(latest)})
                 # Only push when something changed (the client recomputes uptime
                 # locally), with a heartbeat in between
                 if data != last_sent:
@@ -1499,6 +1522,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             color: var(--secondary-text-color); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
         }
         .empty-state { color: var(--secondary-text-color); text-align: center; padding: 40px 20px; font-size: 12px; }
+        /* First-run hint on the Console: shown while the reference data is empty */
+        .setup-hint {
+            display: flex; align-items: center; gap: 10px; margin: 8px; padding: 8px 12px; border-radius: 6px;
+            background: rgba(245, 165, 36, 0.12); border: 1px solid var(--prio-2); font-size: 12.5px;
+        }
+        .setup-hint span { flex: 1; }
+        .home-marker { background: var(--ha-card-background); border: 2px solid #5fd68a; border-radius: 50%; padding: 3px; box-sizing: border-box; }
+        .home-marker svg { width: 100%; height: 100%; fill: none; stroke: #5fd68a; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
         .prio {
             display: inline-block; min-width: 30px; padding: 1px 4px; border-radius: 3px; text-align: center;
@@ -1996,6 +2027,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <section id="tab-console" class="tab-content view" aria-label="Console">
             <div class="console">
                 <div class="feed">
+                    <div id="setup-hint" class="setup-hint" hidden>
+                        <span id="setup-hint-text"></span>
+                        <button type="button" class="btn btn-primary" onclick="switchTab('settings')">Open Settings</button>
+                        <button type="button" class="btn" onclick="dismissSetupHint()" title="Hide until the next visit">✕</button>
+                    </div>
                     <div class="feed-head"><span>Time</span><span>Prio</span><span class="disc-col">Discipline</span><span>Message</span><span class="place-col">Location</span><span class="unit">Unit</span></div>
                     <div id="console-rows" class="feed-rows"><div class="empty-state">No messages yet</div></div>
                 </div>
@@ -2535,15 +2571,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
         const markers = [];
 
-        // Home Assistant zones that sensors filter on. They are read from Home
-        // Assistant after startup, so redraw only when the set changes.
+        // Home (the "km from home" reference) and the Home Assistant zones that
+        // sensors filter on. They are read from Home Assistant after startup, so
+        // redraw only when the set changes.
         const sensorZoneLayer = L.layerGroup().addTo(map);
         let sensorZonesSig = null;
-        function renderSensorZones(zones) {
-            const sig = JSON.stringify(zones || []);
+        function renderZones(zones, home) {
+            const sig = JSON.stringify([zones || [], home || null]);
             if (sig === sensorZonesSig) return;
             sensorZonesSig = sig;
             sensorZoneLayer.clearLayers();
+            if (home) {
+                L.circle([home.latitude, home.longitude], {
+                    radius: home.radius_km * 1000, color: '#5fd68a', weight: 1.5, fillColor: '#5fd68a', fillOpacity: 0.08
+                }).addTo(sensorZoneLayer);
+                const house = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9h13v-9"/><path d="M10 19v-5h4v5"/></svg>';
+                L.marker([home.latitude, home.longitude], {
+                    icon: L.divIcon({className: 'home-marker', html: house, iconSize: [24, 24], iconAnchor: [12, 12]}), keyboard: false
+                }).addTo(sensorZoneLayer).bindTooltip('Home', {sticky: true});
+            }
             (zones || []).forEach(z => {
                 L.circle([z.center_lat, z.center_lon], {
                     radius: z.radius_km * 1000,
@@ -2842,8 +2888,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             document.getElementById('detail-float').classList.remove('open');
         }
 
+        // Keyboard: Escape closes the floating detail; in the live views j/k or
+        // the arrow keys step through the messages and 1/2/3 switch views
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeDetailFloat();
+            if (e.key === 'Escape') { closeDetailFloat(); return; }
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            const t = e.target;
+            if (t && (['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName) || t.isContentEditable)) return;
+            if (document.querySelector('.modal-overlay.open')) return;
+            const active = document.querySelector('.tab-content.active');
+            if (!active || !VIEWS.includes(active.id.replace('tab-', ''))) return;
+            if (e.key === 'j' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (selectedMsg) stepDetail(1); else handleMessageClick(0);
+            } else if (e.key === 'k' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (selectedMsg) stepDetail(-1);
+            } else if (['1', '2', '3'].includes(e.key)) {
+                switchTab(VIEWS[Number(e.key) - 1]);
+            }
         });
 
         // Draggable dividers: each sets a CSS size variable, kept per browser;
@@ -3033,6 +3096,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 ['Region', msg.region || '—'],
                 ['Geocode', geocodeLevel],
                 msg.repeats ? ['Repeats', `resent ${msg.repeats} times`] : null,
+                Array.isArray(msg.sensors) ? ['Sensors', msg.sensors.length ? msg.sensors.join(', ') : 'none', true] : null,
                 ['Address', msg.address || msg.city || '—', true],
                 unmatchedCapcodes.length > 0 ? ['Capcodes', unmatchedCapcodes.join(' '), true] : null,
                 ['Receivers', msg.receivers || '—', true],
@@ -3087,6 +3151,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 </div>
             `;
             renderDetailNav();
+            if (msg.id !== undefined && msg.id !== null) history.replaceState(null, '', '#msg=' + msg.id);
 
             if (msg.vehicle_category || msg.vehicle_number) loadVehiclePhoto(msg);
 
@@ -3610,8 +3675,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         function renderMessagesList(latest) {
+            messagesLoaded = true;
             const sig = latest.length + '|' + latest.map(m => m.timestamp + (m.repeats || 0)).join('|');
-            if (sig === lastMsgsSig) return;
+            if (sig === lastMsgsSig) { openDeepLink(); return; }
             lastMsgsSig = sig;
 
             currentMessages = latest;
@@ -3622,6 +3688,38 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             highlightSelectedMessage();
             if (selectedMsg) renderDetailNav();
             updateMarkers(latest);
+            openDeepLink();
+        }
+
+        // Deep links: #msg=<id> opens that message. Inside Home Assistant the
+        // dashboard runs in the ingress iframe, so the outer page's hash counts too.
+        function deepLinkedMessageId() {
+            let hash = location.hash;
+            try {
+                if (window.parent !== window && window.parent.location.hash) hash = window.parent.location.hash;
+            } catch (e) { /* not inside Home Assistant */ }
+            const m = /[#&]msg=(\\d+)/.exec(hash || '');
+            return m ? Number(m[1]) : null;
+        }
+        let messagesLoaded = false;
+        let pendingMessageId = deepLinkedMessageId();
+        function openDeepLink() {
+            if (pendingMessageId === null || !messagesLoaded) return;
+            const id = pendingMessageId;
+            pendingMessageId = null;
+            const idx = currentMessages.findIndex(m => m.id === id);
+            if (idx >= 0) { handleMessageClick(idx); return; }
+            // Not in the live list (older, or filtered out): fetch it on its own
+            fetch(`${basePath}api/messages/${id}`)
+                .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+                .then(msg => { if (activeView !== 'console') openDetailFloat(); showMessageDetails(msg); })
+                .catch(() => toast(`Message ${id} not found`, 'error'));
+        }
+        window.addEventListener('hashchange', () => { pendingMessageId = deepLinkedMessageId(); openDeepLink(); });
+
+        function dismissSetupHint() {
+            sessionStorage.setItem('p2000_setup_hint', 'off');
+            document.getElementById('setup-hint').hidden = true;
         }
 
         // Incident ages on the wallboard keep counting without new messages
@@ -3633,8 +3731,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const stats = data.stats;
             lastStats = stats;
 
-            renderSensorZones(stats.sensor_zones);
+            renderZones(stats.sensor_zones, stats.home);
             checkForNewMessages(data.latest || []);
+
+            // First-run hint: nothing works well until the reference data is imported
+            const missing = [[stats.db_capcodes, 'capcodes'], [stats.db_places, 'places'], [stats.db_streets, 'streets']]
+                .filter(([count]) => count === 0).map(([, name]) => name);
+            document.getElementById('setup-hint-text').textContent =
+                `Reference data not imported yet (${missing.join(', ')}): messages get no discipline, town or map pin until you do.`;
+            document.getElementById('setup-hint').hidden = !missing.length || sessionStorage.getItem('p2000_setup_hint') === 'off';
 
             totalEl.textContent = stats.total_messages;
             document.getElementById('kpi-msgs-hour').textContent = stats.messages_last_hour;
@@ -3683,7 +3788,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 renderPieChart(stats.by_discipline, disciplineChartEl);
             }
 
-            renderMessagesList(data.latest || []);
+            // The initial stats load has no message list: keep the one we have
+            if (data.latest) renderMessagesList(data.latest);
             updateInfo(stats);
         }
 
@@ -3764,6 +3870,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             selectedMsg = null;
             selectedMsgKey = null;
             closeDetailFloat();
+            history.replaceState(null, '', location.pathname + location.search);
             if (currentMarker) { map.removeLayer(currentMarker); currentMarker = null; }
             detailContent.innerHTML = '<div class="empty-state">Click a message to view details</div>';
             document.getElementById('history-section').hidden = true;
@@ -3817,7 +3924,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const savedTab = localStorage.getItem('p2000_tab');
         switchTab(VIEWS.concat(['settings', 'info']).includes(savedTab) ? savedTab : 'console');
         loadSensorFilterBar();
-        fetch(basePath + 'api/stats').then(r => r.json()).then(stats => update({stats, latest: []}))
+        fetch(basePath + 'api/stats').then(r => r.json()).then(stats => update({stats}))
             .catch(() => toast('Failed to load stats', 'error'));
 
         // =====================================================================
