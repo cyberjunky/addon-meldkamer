@@ -1759,8 +1759,9 @@ class Database:
         - see DISCIPLINE_ABBREVIATION_OVERRIDES.
         """
         found = []
-        # Codes are matched as written ("OvD") or fully in capitals ("OVD"): a lowercase
-        # word that happens to spell a code ("bon 170616", "rit:", "me", "ab") is a word
+        # A code matches a token in capitals ("OVD", "BON-01") or with at least two
+        # capitals ("OvD", "HOvD"); a lowercase or capitalised word that happens to
+        # spell a code ("bon 170616", "rit:", "Me", "ab") is a word
         words = text.split()
         discipline_lower = (discipline or "").lower()
 
@@ -1779,7 +1780,8 @@ class Database:
             for word in words:
                 # Clean word of punctuation
                 token = word.strip(".,;:!?()[]{}")
-                clean = token if token in all_abbrevs else (token.upper() if token.isupper() else token)
+                code_like = token.isupper() or sum(c.isupper() for c in token) >= 2
+                clean = token.upper() if code_like else token
                 if clean in all_abbrevs:
                     found.append({"abbreviation": clean, "full_text": _resolve_text(clean, all_abbrevs[clean])})
                 elif "-" in clean and clean.isupper():
