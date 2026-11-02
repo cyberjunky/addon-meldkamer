@@ -67,7 +67,7 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 
 ## Getting the most out of it
 
-A fresh install only knows the P2000 abbreviations. Everything else the dashboard shows comes from reference data you import once from **Settings**. All imports use free public data, no account needed:
+A fresh install only knows the P2000 abbreviations. Everything else the dashboard shows comes from reference data you import once from the **Data** tab. All imports use free public data, no account needed:
 
 | Step | Where | What it gives you |
 |------|-------|-------------------|
