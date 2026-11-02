@@ -5,7 +5,7 @@
 - The message detail shows which of your sensors the message matched.
 - Links to a message: selecting one puts `#msg=<id>` in the URL, and opening the dashboard with such a hash shows that message, also when it has left the live list. The `meldkamer_message` event has a `dashboard_url` for this, usable as the `url` of a notification.
 - Keyboard: `j`/`k` or the arrow keys step through the messages, `1`/`2`/`3` switch between Console, Wallboard and Lanes, Escape closes the floating detail.
-- A hint on the Console while the capcodes, places or streets are not imported yet, with a button to Settings.
+- A hint on the Console while the capcodes, places or streets are not imported yet, with a button to the Data tab.
 - The map shows your home (from Home Assistant's home zone).
 - New `announce.quiet_hours` option (e.g. `23:00-07:00`): no speaker announcements between those times, and the dashboard's sound, speech and notifications stay silent too (the toggles dim and say so).
 - Info tab: messages per hour, per discipline and the busiest towns of the last 24 hours; a Sensors overview with each sensor's filters, zone radius, announce setting, matches since start and last match; the geocoding rows moved from Device to their own Locations card.
