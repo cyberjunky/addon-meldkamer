@@ -266,31 +266,42 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
     """
     # fq with a quoted value handles multi-word names like "Hoek van Holland"
     fq = f"woonplaatsnaam:{_solr_quote(woonplaats)}"
-    streets = {}  # dict to dedupe: street_name -> postcode
-    coordinates = {}  # street_name -> (latitude, longitude)
+    # Keyed by the case-folded name: BAG has some streets in two spellings ("De Akkers" and
+    # "de Akkers", "WEINTERP" and "Weinterp"). The first spelling seen (from the street
+    # results, which carry the position) is kept; the postcode results only fill in its postcode
+    names = {}  # folded name -> street name as stored
+    streets = {}  # street name -> postcode
+    coordinates = {}  # street name -> (latitude, longitude)
+
+    def own_place(doc: dict) -> bool:
+        # The fq also matches similar names ("Kapel Avezaath" finds "Kapel-Avezaath"): keep exact hits only
+        return doc.get("woonplaatsnaam", woonplaats).strip() == woonplaats
 
     docs, complete = _pdok_search(
-        {"q": "type:weg", "fq": fq, "fl": "straatnaam,centroide_ll"}, f"streets of {woonplaats}"
+        {"q": "type:weg", "fq": fq, "fl": "straatnaam,woonplaatsnaam,centroide_ll"}, f"streets of {woonplaats}"
     )
     if not complete:
         _warn(f"Street list for {woonplaats} is incomplete ({len(docs)} loaded)")
     for doc in docs:
         street = doc.get("straatnaam", "").strip()
         # Skip very short street names (e.g., "A", "B") - they match too many messages
-        if street and len(street) >= 3:
-            streets.setdefault(street, "")
-            coordinates.setdefault(street, _parse_point(doc.get("centroide_ll", "")))
+        if street and len(street) >= 3 and own_place(doc):
+            name = names.setdefault(street.casefold(), street)
+            streets.setdefault(name, "")
+            coordinates.setdefault(name, _parse_point(doc.get("centroide_ll", "")))
 
     docs, complete = _pdok_search(
-        {"q": "type:postcode", "fq": fq, "fl": "straatnaam,postcode"}, f"postcodes of {woonplaats}"
+        {"q": "type:postcode", "fq": fq, "fl": "straatnaam,woonplaatsnaam,postcode"}, f"postcodes of {woonplaats}"
     )
     if not complete:
         logger.info(f"Postcodes for {woonplaats} incomplete - some streets will have no postcode")
     for doc in docs:
         street = doc.get("straatnaam", "").strip()
         postcode = doc.get("postcode", "").strip()
-        if street and len(street) >= 3 and not streets.get(street):
-            streets[street] = postcode[:4] if postcode else ""
+        if street and len(street) >= 3 and own_place(doc):
+            name = names.setdefault(street.casefold(), street)
+            if not streets.get(name):
+                streets[name] = postcode[:4] if postcode else ""
 
     # Convert to list format. Streets only found in the postcode results have no centroid:
     # keep them without a position instead of failing the whole place
@@ -368,6 +379,7 @@ def import_province_data(province: str, database) -> dict[str, Any]:
             return {"province": province, "cities": 0, "streets": 0}
 
         _import_progress["status"] = f"Found {len(woonplaatsen)} woonplaatsen in {province}"
+        _import_progress["phase"] = "Importing streets"
         logger.info(f"Importing {len(woonplaatsen)} woonplaatsen for {province}")
 
         # Process each woonplaats
@@ -409,8 +421,13 @@ def import_province_data(province: str, database) -> dict[str, Any]:
             if (i + 1) % 20 == 0:
                 logger.info(f"Progress: {i + 1}/{len(woonplaatsen)} woonplaatsen, {streets_added} streets")
 
-        # Complete
-        status = f"Complete! {cities_added} cities, {streets_added} streets"
+        # Spelling variants already in the database (from earlier imports) merged into one street
+        merged = database.merge_case_duplicate_streets()
+        if merged:
+            logger.info(f"Merged {merged} streets that only differed in capitalisation")
+
+        # Complete ("new" places: existing ones, e.g. from Import All Places, are not counted)
+        status = f"Complete! {cities_added} new places, {streets_added} new streets"
         warnings = _import_progress.get("warnings", [])
         if warnings:
             status += f" - INCOMPLETE, {len(warnings)} warning(s): {'; '.join(warnings[:5])}"
@@ -420,6 +437,7 @@ def import_province_data(province: str, database) -> dict[str, Any]:
                 "cities": cities_added,
                 "streets": streets_added,
                 "percent": 100,
+                "phase": "Complete",
                 "status": status,
             }
         )

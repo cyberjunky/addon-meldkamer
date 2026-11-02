@@ -15,6 +15,9 @@
 - Console: a search box (press `/`) searches all stored messages, not just the live list; P1/P2/P3+ and discipline chips narrow the list; "Older messages" at the bottom loads earlier messages from the database. Previous/Next and the keyboard walk the list as shown.
 - Top and bottom bar no longer show the same things twice. The top bar keeps MELDKAMER P2000 FLEX, the views, the sensor filter, the toggles and the clock; the receiver status and the MSG/h, FRAMES/min and INCIDENTS counters moved to the bottom bar. The receiver status and the live connection are one status there: the receiver's state while connected, "Connecting…" or "Reconnecting…" when the dashboard has no live connection.
 - Fixed: a street was looked up in every town in the country, not just the town in the message. Messages got the postcode of a street of the same name elsewhere ("Kerkstraat Uitgeest" got the postcode of the Kerkstraat in Amsterdam), or a street named after an everyday word ("Inzet", "Dienst", "Contact") put a message in a town it never mentioned. A street now only matches in the message's town; without a town only clear street names (several words, or ending in -straat, -weg, -laan and so on) are matched.
+- Streets that BAG lists in two spellings for one town ("De Akkers" and "de Akkers") are imported once, and existing ones are merged on startup: the one with a position is kept and takes over the other's postcode.
+- Import BAG no longer gives "Kapel Avezaath" the streets of "Kapel-Avezaath" (and the other way round): only streets of the exact town are imported.
+- The Import BAG status now ends in phase "Complete" and says "new places" and "new streets", as only new ones are counted.
 
 ## 1.3.0
 
