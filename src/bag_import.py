@@ -157,7 +157,9 @@ def _pdok_search(params: dict[str, str], label: str, on_page=None) -> tuple[list
         if not docs or start >= total:
             return docs_out, True
         if start > PDOK_MAX_START:
-            logger.warning(f"PDOK results for {label} truncated at {start} of {total}")
+            # Not a warning by itself: the caller fetches the rest another way (postcodes per area)
+            # or reports an incomplete list in the import result
+            logger.info(f"PDOK results for {label} stop at {start} of {total} (Locatieserver paging limit)")
             return docs_out, False
 
 
@@ -242,6 +244,7 @@ def import_all_places(database) -> int:
         else:
             _import_progress["status"] = f"Imported {imported} places successfully!"
         _import_progress["percent"] = 100
+        _import_progress["phase"] = "Complete"
         _import_progress["cities"] = imported
         _import_progress["running"] = False
 

@@ -47,10 +47,11 @@ configuration:
     name: Sensors
     description: >-
       Define custom Home Assistant sensors with filters for P2000 messages.
-      All text fields (disciplines, cities, capcodes, priorities, text_contains)
-      support comma-separated values for matching multiple items. zone
-      (e.g. zone.home) only matches messages inside that Home Assistant
-      zone, using its location and radius.
+      All text fields (disciplines, cities, capcodes, priorities, text_contains,
+      incident_types) support comma-separated values for matching multiple
+      items. incident_types takes fire, alarm, traffic, medical, water, gas,
+      lift, storm, animal, assist and grip. zone (e.g. zone.home) only matches
+      messages inside that Home Assistant zone, using its location and radius.
   mqtt:
     name: MQTT
     description: >-

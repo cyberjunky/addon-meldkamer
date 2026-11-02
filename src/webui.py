@@ -4965,7 +4965,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 const streets = ok.reduce((sum, r) => sum + (r.streets || 0), 0);
                                 const cities = ok.reduce((sum, r) => sum + (r.cities || 0), 0);
                                 if (ok.length) {
-                                    toast(`BAG import complete: ${ok.length} province(s), ${cities} cities, ${streets} streets`, 'success');
+                                    toast(`BAG import complete: ${ok.length} province(s), ${cities} new places, ${streets} new streets`, 'success');
                                 }
                                 if (failed.length) {
                                     toast(`BAG import failed for: ${failed.map(r => r.province).join(', ')}`, 'error');

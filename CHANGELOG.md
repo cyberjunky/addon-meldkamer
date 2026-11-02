@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- After a BAG import of several provinces the message says "new places" and "new streets", like the status of one province; Import All Places ends in phase "Complete"; and the Locatieserver paging limit is no longer logged as a warning when the postcodes are fetched per area anyway.
+- The Sensors description on the Configuration tab mentions `incident_types` and its values.
+
 ## 1.4.3
 
 **After updating:** nothing to do. New abbreviations and spoken-text rules are added on the first start; your own edits are kept.

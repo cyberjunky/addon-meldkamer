@@ -49,10 +49,12 @@ configuration:
     name: Sensoren
     description: >-
       Maak eigen Home Assistant-sensoren met filters op P2000-meldingen. Alle
-      tekstvelden (disciplines, cities, capcodes, priorities, text_contains)
-      accepteren door komma's gescheiden waarden om op meerdere te filteren.
-      zone (bijvoorbeeld zone.home) past alleen bij meldingen binnen die Home
-      Assistant-zone, op basis van de locatie en straal ervan.
+      tekstvelden (disciplines, cities, capcodes, priorities, text_contains,
+      incident_types) accepteren door komma's gescheiden waarden om op meerdere
+      te filteren. incident_types kent fire, alarm, traffic, medical, water,
+      gas, lift, storm, animal, assist en grip. zone (bijvoorbeeld zone.home)
+      past alleen bij meldingen binnen die Home Assistant-zone, op basis van
+      de locatie en straal ervan.
   mqtt:
     name: MQTT
     description: >-
