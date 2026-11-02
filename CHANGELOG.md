@@ -2,7 +2,7 @@
 
 ## 1.4.0
 
-**After updating:** nothing to re-import. The first start merges streets that BAG listed in two spellings (a second or so with all provinces imported); the Settings tab is now called **Data**; browser notifications need Home Assistant on HTTPS.
+**After updating:** run **Import BAG** again for your provinces (Data → Streets): it completes the postcodes of Amsterdam, Rotterdam and The Hague and merges streets that BAG listed in two spellings. The Settings tab is now called **Data**; browser notifications need Home Assistant on HTTPS.
 
 - The message detail shows which of your sensors the message matched.
 - Links to a message: selecting one puts `#msg=<id>` in the URL, and opening the dashboard with such a hash shows that message, also when it has left the live list. The `meldkamer_message` event has a `dashboard_url` for this, usable as the `url` of a notification.
@@ -18,7 +18,7 @@
 - Top and bottom bar no longer show the same things twice. The top bar keeps MELDKAMER P2000 FLEX, the views, the sensor filter, the toggles and the clock; the receiver status and the MSG/h, FRAMES/min and INCIDENTS counters moved to the bottom bar. The receiver status and the live connection are one status there: the receiver's state while connected, "Connecting…" or "Reconnecting…" when the dashboard has no live connection.
 - Fixed: a street was looked up in every town in the country, not just the town in the message. Messages got the postcode of a street of the same name elsewhere ("Kerkstraat Uitgeest" got the postcode of the Kerkstraat in Amsterdam), or a street named after an everyday word ("Inzet", "Dienst", "Contact") put a message in a town it never mentioned. A street now only matches in the message's town; without a town only clear street names (several words, or ending in -straat, -weg, -laan and so on) are matched.
 - Import BAG: the postcodes of Amsterdam, Rotterdam and The Hague are complete now. The Locatieserver stops at 10,000 results, which those three exceed, so their postcodes are fetched per postcode area; before, part of their streets got no postcode. A postcode list that is still incomplete now shows as a warning in the import result (#47).
-- Streets that BAG lists in two spellings for one town ("De Akkers" and "de Akkers") are imported once, and existing ones are merged once, the first time 1.4.0 starts: the one with a position is kept and takes over the other's postcode.
+- Streets that BAG lists in two spellings for one town ("De Akkers" and "de Akkers") are imported once, and existing ones are merged when the province is imported again: the one with a position is kept and takes over the other's postcode.
 - Import BAG no longer gives "Kapel Avezaath" the streets of "Kapel-Avezaath" (and the other way round): only streets of the exact town are imported.
 - The Import BAG status now ends in phase "Complete" and says "new places" and "new streets", as only new ones are counted.
 
