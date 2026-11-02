@@ -1631,6 +1631,25 @@ class Database:
             logger.error(f"Failed to get messages: {e}")
             return []
 
+    def get_messages_before(self, before: str = "", search: str = "", limit: int = 100) -> list[dict]:
+        """Messages older than `before` (ISO timestamp; empty = newest first), newest first,
+        optionally matching search in body/address/street/city. Same shape as get_recent_messages."""
+        conditions: list[str] = []
+        params: list[Any] = []
+        if before:
+            conditions.append("timestamp < ?")
+            params.append(before)
+        if search:
+            conditions.append("(body LIKE ? OR address LIKE ? OR street LIKE ? OR city LIKE ?)")
+            params.extend([f"%{search}%"] * 4)
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        try:
+            self.cursor.execute(f"SELECT * FROM messages {where} ORDER BY timestamp DESC LIMIT ?", [*params, limit])
+            return [self._message_row_to_dict(row) for row in self.cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get messages: {e}")
+            return []
+
     def get_message_by_id(self, message_id: int) -> dict | None:
         """One stored message by id (same shape as get_recent_messages), or None."""
         try:

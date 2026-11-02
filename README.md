@@ -112,7 +112,7 @@ All data lives in one SQLite database in the add-on's `/data` folder, so it is k
 Access via Home Assistant sidebar → Meldkamer:
 
 - **Console / Wallboard / Lanes** — Three live views of the same feed, switched with tabs in the top bar:
-  - **Console** — dense message table, with the map and the selected message's full detail (vehicle photo, incident timeline, earlier messages at the address) docked on the right
+  - **Console** — dense message table, with the map and the selected message's full detail (vehicle photo, incident timeline, earlier messages at the address) docked on the right. A search box (press `/`) searches all stored messages, the P1/P2/P3+ and discipline chips narrow the list, and "Older messages" at the bottom loads earlier ones from the database
   - **Wallboard** — large map with live counts, incidents sorted by priority and a ticker of the newest messages; for an always-on screen
   - **Lanes** — one column per discipline (Brandweer, Ambulance, Politie, other) next to the map
 

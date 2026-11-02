@@ -7,6 +7,7 @@
 - Keyboard: `j`/`k` or the arrow keys step through the messages, `1`/`2`/`3` switch between Console, Wallboard and Lanes, Escape closes the floating detail.
 - A hint on the Console while the capcodes, places or streets are not imported yet, with a button to Settings.
 - The map shows your home (from Home Assistant's home zone).
+- Console: a search box (press `/`) searches all stored messages, not just the live list; P1/P2/P3+ and discipline chips narrow the list; "Older messages" at the bottom loads earlier messages from the database. Previous/Next and the keyboard walk the list as shown.
 
 ## 1.3.0
 
