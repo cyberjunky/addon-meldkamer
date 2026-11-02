@@ -25,6 +25,8 @@ from .tts import SpeechRules
 logger = logging.getLogger(__name__)
 
 MAX_MESSAGES = 500
+# Database rows scanned per "older messages" / search request before the sensor filter
+FEED_SCAN = 500
 # Only per_page is capped tightly; page just needs to keep SQL OFFSET in range
 MAX_PAGE = 1_000_000_000
 # CSV imports arrive as one JSON body; aiohttp's default limit is 1 MiB
@@ -456,8 +458,31 @@ class WebUI:
         return web.json_response([{"name": s.name, "icon": s.icon} for s in self.sensor_manager.sensors])
 
     async def _handle_messages(self, request: web.Request) -> web.Response:
-        messages = self._filter_by_sensor(list(self.messages), request.query.get("sensor", ""))
-        return web.json_response(self._enrich(messages))
+        """The live message list, or with search/before a page of older messages from the database.
+
+        The page answer is {"items", "has_more", "next_before"}: next_before is the
+        timestamp to pass as `before` for the next page (the sensor filter can
+        leave a page short while older rows remain).
+        """
+        sensor_name = request.query.get("sensor", "")
+        search = request.query.get("search", "").strip()
+        before = request.query.get("before", "").strip()
+        if not search and not before:
+            return web.json_response(self._enrich(self._filter_by_sensor(list(self.messages), sensor_name)))
+
+        limit = _int_param(request, "limit", 50, maximum=200)
+        rows = self.database.get_messages_before(before, search, FEED_SCAN)
+        matched = self._filter_by_sensor(rows, sensor_name)
+        items = matched[:limit]
+        cut = len(matched) > limit
+        last = items[-1] if cut else (rows[-1] if rows else None)
+        return web.json_response(
+            {
+                "items": self._enrich(items),
+                "has_more": cut or len(rows) == FEED_SCAN,
+                "next_before": last["timestamp"] if last else None,
+            }
+        )
 
     async def _handle_message(self, request: web.Request) -> web.Response:
         """One message by id, for deep links (#msg=<id>) to messages no longer in the live list."""
@@ -1516,6 +1541,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             background: rgba(245, 165, 36, 0.12); border: 1px solid var(--prio-2); font-size: 12.5px;
         }
         .setup-hint span { flex: 1; }
+        /* Console toolbar: search, priority and discipline chips */
+        .feed-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 14px; border-bottom: var(--card-border); }
+        .feed-tools .input { height: 28px; flex: 1 1 160px; min-width: 120px; }
+        .tab.chip { padding: 0 9px; font-size: 12px; }
+        .feed-status { font-family: var(--mono); font-size: 11px; color: var(--secondary-text-color); margin-left: auto; white-space: nowrap; }
+        .feed-more { display: block; width: fit-content; margin: 10px auto; }
         .home-marker { background: var(--ha-card-background); border: 2px solid #5fd68a; border-radius: 50%; padding: 3px; box-sizing: border-box; }
         .home-marker svg { width: 100%; height: 100%; fill: none; stroke: #5fd68a; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -2013,6 +2044,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <span id="setup-hint-text"></span>
                         <button type="button" class="btn btn-primary" onclick="switchTab('settings')">Open Settings</button>
                         <button type="button" class="btn" onclick="dismissSetupHint()" title="Hide until the next visit">✕</button>
+                    </div>
+                    <div class="feed-tools">
+                        <input type="search" id="feed-search" class="input" placeholder="Search messages…" aria-label="Search messages" title="Search all stored messages (press / to focus)" oninput="onFeedSearch(this.value)">
+                        <div class="tabs" role="group" aria-label="Priority">
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'prio', 'p1')">P1</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'prio', 'p2')">P2</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'prio', 'other')" title="P3, B1/B2 and messages without a priority">P3+</button>
+                        </div>
+                        <div class="tabs" role="group" aria-label="Discipline">
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'disc', 'brandweer')">Brandweer</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'disc', 'ambulance')">Ambulance</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'disc', 'politie')">Politie</button>
+                            <button type="button" class="tab chip" onclick="toggleFeedChip(this, 'disc', 'other')">Other</button>
+                        </div>
+                        <span id="feed-status" class="feed-status">live</span>
                     </div>
                     <div class="feed-head"><span>Time</span><span>Prio</span><span class="disc-col">Discipline</span><span>Message</span><span class="place-col">Location</span><span class="unit">Unit</span></div>
                     <div id="console-rows" class="feed-rows"><div class="empty-state">No messages yet</div></div>
@@ -2548,9 +2594,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             return msg.id !== undefined && msg.id !== null ? 'id:' + msg.id : msg.timestamp + '|' + (msg.body || '');
         }
         function highlightSelectedMessage() {
-            document.querySelectorAll('[data-msg-index]').forEach(el => {
-                const m = currentMessages[Number(el.dataset.msgIndex)];
-                el.classList.toggle('selected', selectedMsgKey !== null && Boolean(m) && msgKey(m) === selectedMsgKey);
+            document.querySelectorAll('[data-msg-index], [data-msg-key]').forEach(el => {
+                const m = el.dataset.msgKey === undefined ? currentMessages[Number(el.dataset.msgIndex)] : null;
+                const key = el.dataset.msgKey !== undefined ? el.dataset.msgKey : (m ? msgKey(m) : null);
+                el.classList.toggle('selected', selectedMsgKey !== null && key === selectedMsgKey);
             });
         }
         const markers = [];
@@ -2896,12 +2943,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (!active || !VIEWS.includes(active.id.replace('tab-', ''))) return;
             if (e.key === 'j' || e.key === 'ArrowDown') {
                 e.preventDefault();
-                if (selectedMsg) stepDetail(1); else handleMessageClick(0);
+                if (selectedMsg) stepDetail(1); else openMessageAt(0);
             } else if (e.key === 'k' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (selectedMsg) stepDetail(-1);
             } else if (['1', '2', '3'].includes(e.key)) {
                 switchTab(VIEWS[Number(e.key) - 1]);
+            } else if (e.key === '/') {
+                e.preventDefault();
+                switchTab('console');
+                document.getElementById('feed-search').focus();
             }
         });
 
@@ -3203,15 +3254,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         // Position of the shown message in the list, with previous/next buttons
+        // Previous/Next and the keyboard walk the list the active view shows:
+        // the Console's (searched, filtered, with older messages) or the live one
+        function navList() {
+            return activeView === 'console' ? consoleShown : currentMessages;
+        }
+
+        function openMessageAt(idx) {
+            const list = navList();
+            if (!list[idx]) return;
+            if (activeView !== 'console') openDetailFloat();
+            showMessageDetails(list[idx], idx);
+        }
+
         function renderDetailNav() {
-            const idx = selectedMsg ? currentMessages.findIndex(m => msgKey(m) === msgKey(selectedMsg)) : -1;
+            const list = navList();
+            const idx = selectedMsg ? list.findIndex(m => msgKey(m) === msgKey(selectedMsg)) : -1;
             document.getElementById('detail-nav').hidden = idx < 0;
-            document.getElementById('detail-pos').textContent = `Message ${idx + 1} of ${currentMessages.length}`;
+            document.getElementById('detail-pos').textContent = `Message ${idx + 1} of ${list.length}`;
         }
 
         function stepDetail(step) {
-            const idx = currentMessages.findIndex(m => msgKey(m) === msgKey(selectedMsg)) + step;
-            if (idx >= 0 && idx < currentMessages.length) handleMessageClick(idx);
+            const list = navList();
+            const idx = list.findIndex(m => msgKey(m) === msgKey(selectedMsg)) + step;
+            if (idx >= 0 && idx < list.length) openMessageAt(idx);
         }
 
         function renderIncident(msg) {
@@ -3510,9 +3576,92 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             return msg.street ? `${msg.street}, ${msg.city}` : (msg.city || '');
         }
 
+        // Console feed: the live list (plus older messages loaded on demand) or,
+        // while searching, results from the database; both narrowed by the chips
+        const FEED_BATCH = 50;
+        let feedSearch = '';
+        let feedArchive = null;   // search results, null when showing the live list
+        let feedOlder = [];       // older messages appended under the live list
+        let feedHasMore = true;
+        let feedNextBefore = null;
+        let feedLoading = false;
+        let feedRequest = 0;      // answers to earlier requests are ignored
+        let consoleShown = [];
+        const feedPrio = new Set();
+        const feedDisc = new Set();
+
+        function prioKind(msg) {
+            return msg.priority === 1 ? 'p1' : (msg.priority === 2 ? 'p2' : 'other');
+        }
+
+        function feedBase() {
+            if (feedArchive) return feedArchive;
+            const live = new Set(currentMessages.map(msgKey));
+            return currentMessages.concat(feedOlder.filter(m => !live.has(msgKey(m))));
+        }
+
+        function consoleList() {
+            return feedBase().filter(m =>
+                (!feedPrio.size || feedPrio.has(prioKind(m))) && (!feedDisc.size || feedDisc.has(discKind(m))));
+        }
+
+        function toggleFeedChip(btn, group, value) {
+            const set = group === 'prio' ? feedPrio : feedDisc;
+            if (set.has(value)) set.delete(value); else set.add(value);
+            btn.classList.toggle('active', set.has(value));
+            renderConsole();
+        }
+
+        function resetFeed() {
+            feedArchive = null; feedOlder = []; feedHasMore = true; feedNextBefore = null;
+            feedLoading = false; feedRequest++;
+        }
+
+        let feedSearchTimer = null;
+        function onFeedSearch(value) {
+            clearTimeout(feedSearchTimer);
+            feedSearchTimer = setTimeout(() => setFeedSearch(value.trim()), 300);
+        }
+
+        function setFeedSearch(value) {
+            if (value === feedSearch) return;
+            feedSearch = value;
+            resetFeed();
+            if (feedSearch) loadOlderMessages(); else renderConsole();
+        }
+
+        function loadOlderMessages() {
+            if (feedLoading || !feedHasMore) return;
+            const base = feedBase();
+            const before = feedNextBefore || (base.length ? base[base.length - 1].timestamp : '');
+            if (!feedSearch && !before) return;
+            const q = new URLSearchParams({limit: FEED_BATCH});
+            if (currentSensorFilter) q.set('sensor', currentSensorFilter);
+            if (feedSearch) q.set('search', feedSearch);
+            if (before) q.set('before', before);
+            const request = ++feedRequest;
+            feedLoading = true;
+            renderConsole();
+            fetch(`${basePath}api/messages?${q}`)
+                .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+                .then(data => {
+                    if (request !== feedRequest) return;
+                    if (feedSearch) feedArchive = (feedArchive || []).concat(data.items);
+                    else feedOlder = feedOlder.concat(data.items);
+                    feedHasMore = data.has_more;
+                    feedNextBefore = data.next_before;
+                })
+                .catch(e => { if (request === feedRequest) toast(`Failed to load messages (${e.message})`, 'error'); })
+                .then(() => { if (request === feedRequest) { feedLoading = false; renderConsole(); } });
+        }
+
+        function openConsoleMessage(idx) {
+            if (consoleShown[idx]) showMessageDetails(consoleShown[idx], idx);
+        }
+
         function consoleRow(msg, idx, incidentSize) {
             return `
-                <button type="button" class="feed-row" data-msg-index="${idx}" onclick="handleMessageClick(${idx})">
+                <button type="button" class="feed-row" data-msg-key="${escapeHtml(msgKey(msg))}" onclick="openConsoleMessage(${idx})">
                     <span class="time">${formatTime(msg.timestamp)}</span>
                     <span>${prioChip(msg)}</span>
                     <span class="disc ${discKind(msg)}">${escapeHtml(msg.discipline || '—')}</span>
@@ -3522,17 +3671,29 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 </button>`;
         }
 
-        function renderConsole(latest) {
+        function renderConsole() {
             const el = document.getElementById('console-rows');
+            consoleShown = consoleList();
             const sizes = {};
-            latest.forEach(m => { if (m.incident_id) sizes[m.incident_id] = (sizes[m.incident_id] || 0) + 1; });
+            consoleShown.forEach(m => { if (m.incident_id) sizes[m.incident_id] = (sizes[m.incident_id] || 0) + 1; });
             const shown = new Set();
-            el.innerHTML = latest.map((m, idx) => {
+            const rows = consoleShown.map((m, idx) => {
                 // The incident count goes on the incident's newest message only
                 const first = m.incident_id && !shown.has(m.incident_id);
                 if (first) shown.add(m.incident_id);
                 return consoleRow(m, idx, first ? sizes[m.incident_id] : 0);
-            }).join('') || '<div class="empty-state">No messages yet</div>';
+            }).join('');
+            const base = feedBase().length;
+            const empty = feedSearch
+                ? (feedLoading ? 'Searching…' : `No messages found for “${escapeHtml(feedSearch)}”`)
+                : (base ? 'No messages match the selected chips' : 'No messages yet');
+            const more = feedHasMore && (feedSearch || base)
+                ? `<button type="button" class="btn feed-more" onclick="loadOlderMessages()"${feedLoading ? ' disabled' : ''}>${feedLoading ? 'Loading…' : 'Older messages'}</button>`
+                : '';
+            el.innerHTML = (rows || `<div class="empty-state">${empty}</div>`) + more;
+            document.getElementById('feed-status').textContent = feedSearch
+                ? `${consoleShown.length} found`
+                : (feedOlder.length ? `live + ${feedOlder.length} older` : 'live');
         }
 
         function disciplineTags(msgs) {
@@ -3678,7 +3839,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
             currentMessages = latest;
             if (!latest.length) selectedMsgKey = null;
-            renderConsole(latest);
+            renderConsole();
             renderWallboard();
             renderLanes(latest);
             highlightSelectedMessage();
@@ -3868,8 +4029,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             document.querySelector('.filter-select').value = name;
             lastMsgsSig = null;  // force re-render even if the next batch looks identical in size/timestamps
             clearSelectedMessage();
+            resetFeed();
             connectStream();
             loadMessagesList();
+            if (feedSearch) loadOlderMessages();  // the search results follow the sensor filter too
         }
 
         function loadSensorFilterBar() {
