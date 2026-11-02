@@ -19,6 +19,7 @@ from .database import Database
 from .decoder import Decoder
 from .ha_client import HAClient, HAClientError
 from .message import P2000Message
+from .parser import city_shortname_tags
 from .processor import MessageProcessor
 from .sensor_manager import SensorManager
 from .tts import SpeechRules
@@ -450,7 +451,9 @@ class WebUI:
         for m in messages:
             m = {**m}
             if m.get("body"):
-                m["abbreviations"] = self.database.find_abbreviations_in_text(m["body"], m.get("discipline", ""))
+                m["abbreviations"] = self.database.find_abbreviations_in_text(
+                    m["body"], m.get("discipline", "")
+                ) + city_shortname_tags(m["body"])
             if manager.sensors:
                 m["sensors"] = [s.name for s in manager.get_matching_sensors(_DictMessageView(m))]
             result.append(m)
