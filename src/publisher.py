@@ -128,6 +128,9 @@ class Publisher:
                 )
 
         if self.config.announce_enabled and any(s.announce for s in sensors) and msg.tts:
+            if self.config.quiet_now():
+                logger.debug(f"Quiet hours ({self.config.announce_quiet_hours}): not announcing {msg.body[:40]}")
+                return
             try:
                 self._announcements.put_nowait(msg.tts)
             except asyncio.QueueFull:

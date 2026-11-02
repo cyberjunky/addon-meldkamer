@@ -37,7 +37,9 @@ configuration:
       Spreek meldingen van sensoren met "announce: true" uit op Home
       Assistant-mediaspelers met tts.speak. tts_entity is bijvoorbeeld
       tts.google_translate_nl_nl, media_players is een door komma's
-      gescheiden lijst van media_player-entiteiten.
+      gescheiden lijst van media_player-entiteiten. quiet_hours (bijvoorbeeld
+      23:00-07:00) houdt de speakers en het geluid, de spraak en de meldingen
+      van het dashboard stil tussen die tijden.
   sensors_enabled:
     name: Sensoren inschakelen
     description: >-

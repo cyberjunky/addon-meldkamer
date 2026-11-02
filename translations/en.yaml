@@ -36,6 +36,8 @@ configuration:
       Speak messages of sensors with "announce: true" on Home Assistant media
       players using tts.speak. tts_entity is e.g. tts.google_translate_nl_nl,
       media_players is a comma-separated list of media_player entities.
+      quiet_hours (e.g. 23:00-07:00) silences the speakers and the dashboard's
+      sound, speech and notifications between those times.
   sensors_enabled:
     name: Sensors Enabled
     description: >-
