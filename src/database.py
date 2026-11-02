@@ -2418,3 +2418,46 @@ class Database:
                     cur.close()
             self._cursors.clear()
             self.conn.close()
+
+    def backup_to(self, path: str) -> None:
+        """Write a consistent copy of the database to path (SQLite online backup)."""
+        with self._lock:
+            dest = sqlite3.connect(path)
+            try:
+                self._conn.backup(dest)
+            finally:
+                dest.close()
+
+    @staticmethod
+    def check_backup(path: str) -> str | None:
+        """Why the file at path can't be restored, or None when it's a sound Meldkamer database."""
+        try:
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            try:
+                if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    return "The file is a damaged SQLite database"
+                tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            return "The file is not an SQLite database"
+        if not {"messages", "places", "capcodes"} <= tables:
+            return "The file is an SQLite database, but not a Meldkamer one"
+        return None
+
+    def replace_with(self, path: str) -> None:
+        """Replace the database file with the (checked) backup at path and reopen it."""
+        with self._lock:
+            self.close()
+            for suffix in ("", "-wal", "-shm", "-journal"):
+                with contextlib.suppress(FileNotFoundError):
+                    os.remove(self.db_path + suffix)
+            os.replace(path, self.db_path)
+            self._cursors = {}
+            self._text_caches = {}
+            self._vehicle_cache = None
+            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._conn.row_factory = sqlite3.Row
+            self.conn = _LockedConnection(self._conn, self._lock)
+            self._migrate_schema()
+            self.learn_vehicles_from_capcodes()

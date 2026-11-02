@@ -9,6 +9,8 @@
 - The map shows your home (from Home Assistant's home zone).
 - New `announce.quiet_hours` option (e.g. `23:00-07:00`): no speaker announcements between those times, and the dashboard's sound, speech and notifications stay silent too (the toggles dim and say so).
 - Info tab: messages per hour, per discipline and the busiest towns of the last 24 hours; a Sensors overview with each sensor's filters, zone radius, announce setting, matches since start and last match; the geocoding rows moved from Device to their own Locations card.
+- The Settings tab is now called **Data**: it holds the imports and tables, and the add-on's options live on its Configuration tab in Home Assistant, which the tab now says. "Reset database" moved from the toolbar into a Danger zone at the bottom.
+- Backup and restore of the whole database on the Data tab: download one `.sqlite3` file (a consistent snapshot, the add-on keeps running) or restore such a file; the file is checked before the database is replaced.
 - Browser notifications (💬 toggle in the top bar): new messages of the current feed notify while the dashboard is in the background; clicking a notification opens the message.
 - Console: a search box (press `/`) searches all stored messages, not just the live list; P1/P2/P3+ and discipline chips narrow the list; "Older messages" at the bottom loads earlier messages from the database. Previous/Next and the keyboard walk the list as shown.
 

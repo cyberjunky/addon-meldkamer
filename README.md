@@ -10,7 +10,7 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 ![Console view: message table, map and message detail with incident timeline](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/console-dark.webp)
 
 <details>
-<summary>More screenshots (light theme, Wallboard, Lanes, Settings, Info)</summary>
+<summary>More screenshots (light theme, Wallboard, Lanes, Data, Info)</summary>
 
 **Console, light theme** — follows Home Assistant's light/dark mode
 ![Console view in the light theme](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/console-light.webp)
@@ -24,8 +24,8 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 **Lanes** — one column per discipline next to the map
 ![Lanes view](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/lanes.webp)
 
-**Settings** — reference data and tables
-![Settings tab](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/settings.webp)
+**Data** — reference data and tables
+![Data tab](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/settings.webp)
 
 **Info** — receiver, device, database, reception quality and statistics
 ![Info tab](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/info.webp)
@@ -71,9 +71,9 @@ A fresh install only knows the P2000 abbreviations. Everything else the dashboar
 
 | Step | Where | What it gives you |
 |------|-------|-------------------|
-| 1. **Import capcodes** | Settings → Capcodes → *Import Bommel* | Discipline (Brandweer/Ambulance/Politie), region and the units alerted, for every message. Needed for the Lanes view, discipline colours, vehicle types and for sensors that filter on `disciplines` or `region`. Also fills the Vehicles table from the capcode descriptions |
-| 2. **Import all places** | Settings → Places → *Import All Places* | All ~2,500 Dutch towns with their centre position. Needed to recognise the town in a message, for `cities` sensor filters, and for a map pin at the town centre when no street is known |
-| 3. **Import streets** for your province(s) | Settings → Streets → *Import BAG* (per province, 5–10 min for a large one) | Official street names with their position. A message naming one of these streets gets a street-level map pin, distance from home and an exact zone match, **without OpenCage**. Import every province you care about; streets outside them fall back to OpenCage or the town centre |
+| 1. **Import capcodes** | Data → Capcodes → *Import Bommel* | Discipline (Brandweer/Ambulance/Politie), region and the units alerted, for every message. Needed for the Lanes view, discipline colours, vehicle types and for sensors that filter on `disciplines` or `region`. Also fills the Vehicles table from the capcode descriptions |
+| 2. **Import all places** | Data → Places → *Import All Places* | All ~2,500 Dutch towns with their centre position. Needed to recognise the town in a message, for `cities` sensor filters, and for a map pin at the town centre when no street is known |
+| 3. **Import streets** for your province(s) | Data → Streets → *Import BAG* (per province, 5–10 min for a large one) | Official street names with their position. A message naming one of these streets gets a street-level map pin, distance from home and an exact zone match, **without OpenCage**. Import every province you care about; streets outside them fall back to OpenCage or the town centre |
 | 4. *(optional)* **OpenCage** | Add-on configuration → `geocoding` | Street-level positions for streets that aren't imported. The free tier is 2,500 requests a day; receiving the whole country uses more, so set `only_sensor_matches: true` to only look up messages that match one of your sensors |
 | 5. **Sensors and home** | Add-on configuration → `sensors`; Home Assistant's home zone | Filtered Home Assistant sensors, events and announcements; distance from home on each message |
 
@@ -117,10 +117,10 @@ Access via Home Assistant sidebar → Meldkamer:
   - **Lanes** — one column per discipline (Brandweer, Ambulance, Politie, other) next to the map
 
   The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list (or `j`/`k` and the arrow keys; `1`/`2`/`3` switch views, Escape closes the floating detail). Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech, browser-notification and auto-focus toggles sit in the top bar. Browser notifications (💬, asks the browser for permission once) show new messages of the current feed while the dashboard is in the background; clicking one opens that message. The map shows your home (from Home Assistant's home zone) and the zones your sensors filter on. A message's detail lists which of your sensors it matched, and selecting a message puts `#msg=<id>` in the URL: open the dashboard with that hash (for example from a notification, see the `dashboard_url` event field) and it shows that message, also one that has already left the live list. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
-- **Settings** — Card-based data management for every table below
+- **Data** — Imports, the tables below, backup and restore of the whole database, and the database reset (the add-on's own options are on its Configuration tab in Home Assistant)
 - **Info** — Receiver, device, locations and database status, reception quality, statistics (messages per hour and the busiest towns of the last 24 hours, totals by region and discipline) and an overview of your sensors with their filters, matches and last match
 
-### Settings Tab
+### Data Tab
 
 A fresh install starts with an **empty** database (aside from the built-in P2000 abbreviation dictionary and TTS/ignore-text defaults) — message parsing, badges, geocoding, and map pins all improve as you populate it. Capcodes, Places, and Streets are one-click imports that fetch live, free, public Dutch data over the internet, no API key needed:
 
@@ -145,6 +145,8 @@ Each table gets its own card with row counts and Manage/Import actions:
 | 🚒 Vehicles | What each vehicle number is (type, description) | Capcode list, messages naming a vehicle ("TS 07-1782"), +Add, CSV import |
 
 Click "Manage" on any card to view/edit/delete that table's rows.
+
+**Backup and restore** — "Download backup" saves the whole database (messages, imports, your edits, filters and photos) as one `.sqlite3` file, taken as a consistent snapshot while the add-on keeps running. "Restore from backup" replaces the database with such a file, for example when moving to new hardware; the file is checked before anything is replaced. Home Assistant's own backups include the database as well. The **Danger zone** at the bottom holds "Reset database".
 
 ## Configuration
 
@@ -237,7 +239,7 @@ The Info tab shows FLEX frames per minute for the last hour, messages per hour, 
 
 ### Filters
 
-Global message filters are managed live from the dashboard's **Settings** tab (no restart needed) rather than the add-on config:
+Global message filters are managed live from the dashboard's **Data** tab (no restart needed) rather than the add-on config:
 
 - **Ignore Text** — wildcard patterns (e.g. `*TESTOPROEP*`); a message is dropped if its body matches any enabled pattern. Seeded by default with `*TESTOPROEP*` and `*MOB*` (system test calls and mobilofoon checks).
 - **Ignore Capcodes** — exact capcodes to drop; a message is only dropped when **every** capcode on it is on this list (so a single ignored capcode can't kill a multi-capcode group call).
