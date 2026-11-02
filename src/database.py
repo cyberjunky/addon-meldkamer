@@ -14,7 +14,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import vehicle_types
+from . import message_fields, vehicle_types
 from .abbreviation_import import DISCIPLINE_ABBREVIATION_OVERRIDES
 
 logger = logging.getLogger(__name__)
@@ -1102,6 +1102,7 @@ class Database:
         # Not stored: recognised from the text, so older rows get them too
         if "body" in d:
             d.update(self.resolve_vehicle(d["body"] or "", d.get("discipline") or ""))
+            d.update(message_fields.derived_fields(d["body"] or ""))
         return d
 
     def list_messages(

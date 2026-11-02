@@ -89,11 +89,13 @@ Re-run *Import All Places* and *Import BAG* after updates that add data to them 
    - **Street**: the remaining text is matched against the Streets table (longest names first, whole words only), then against address patterns with a postcode, then against common street-name endings (`-straat`, `-weg`, `-laan`, …).
    - **Capcodes** are looked up in the Capcodes table for the discipline, region, location and the names of the alerted units.
    - **Abbreviations** are explained from the Texts table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
+   - **Incident type** from the text: fire, automatic alarm (OMS), traffic accident, medical (reanimatie/AED), water, gas/smell, lift, storm, animal, assistance, GRIP. Also the **reference numbers** (rit, bon, icnum), the meldkamer **talk group** ("BAD-02") and "Directe inzet: ja". A vehicle named with its type ("ambu 16-107") gives the region when the capcodes don't.
 4. **Location** — The first source that knows the address wins:
-   1. the street's position in the **Streets** table (street + town, from the BAG import or entered by you);
-   2. the **geocode cache** of earlier OpenCage results;
-   3. **OpenCage**, when `geocoding` is enabled (with `only_sensor_matches`, only for messages a sensor can match);
-   4. the town centre from the **Places** table (marked as city-level).
+   1. the position of a full postcode in the message ("3068HA" covers a few houses), looked up once at the PDOK Locatieserver, free, and kept in the geocode cache;
+   2. the street's position in the **Streets** table (street + town, from the BAG import or entered by you);
+   3. the **geocode cache** of earlier OpenCage results;
+   4. **OpenCage**, when `geocoding` is enabled (with `only_sensor_matches`, only for messages a sensor can match);
+   5. the town centre from the **Places** table (marked as city-level).
 
    Distance from home is only given for street-level positions, so a message placed at a town centre doesn't show that centre's distance.
 5. **Incidents** — Messages for the same address within `incident_window_minutes` form one incident. It escalates when the GRIP level or priority goes up, or more units or disciplines are alerted.
@@ -317,6 +319,7 @@ All filters within a sensor use **AND** logic — message must match ALL filters
 | `priorities` | string | Comma-separated priorities: `P1`/`A1` = 1, `P2`/`A2` = 2, `P3`/`B1`–`B3` = 3, `P4` = 4 (a plain number works too). For GRIP use `text_contains: "GRIP"` | `"P1, A1"` |
 | `zone` | string | Only messages inside this Home Assistant zone (its location and radius). Create zones under Settings → Areas, labels & zones → Zones | `zone.home` |
 | `text_contains` | string | Keyword search in message body | `"woningbrand"` |
+| `incident_types` | string | Only messages of these types (comma-separated): `fire`, `alarm`, `traffic`, `medical`, `water`, `gas`, `lift`, `storm`, `animal`, `assist`, `grip` |
 | `icon` | string | MDI icon override | `"mdi:fire-truck"` |
 | `announce` | bool | Speak matching messages on Home Assistant speakers (see [Announcements](#announcements)) | `true` |
 
@@ -362,7 +365,7 @@ With `sensors_enabled`, Meldkamer also publishes (every minute, and over MQTT wi
 
 With `ha_events: true` (default) Meldkamer fires on the Home Assistant event bus:
 
-- **`meldkamer_message`** for every new message, with all message fields (`body`, `tts`, `priority`, `discipline`, `capcodes`, `region`, `city`, `street`, `address`, `latitude`, `longitude`, `distance_km`, `incident_id`, …) plus `sensors`, the names of the sensors it matched, and `dashboard_url`, a Home Assistant path (`/hassio/ingress/<addon>#msg=<id>`) that opens the dashboard on that message, for use as the `url` of a notification.
+- **`meldkamer_message`** for every new message, with all message fields (`body`, `tts`, `priority`, `discipline`, `capcodes`, `region`, `city`, `street`, `address`, `latitude`, `longitude`, `distance_km`, `incident_id`, …) plus `incident_type`/`incident_label`, `ride_number`, `bon_number`, `incident_number`, `talk_group`, `direct_deployment`, `sensors`, the names of the sensors it matched, and `dashboard_url`, a Home Assistant path (`/hassio/ingress/<addon>#msg=<id>`) that opens the dashboard on that message, for use as the `url` of a notification.
 - **`meldkamer_incident_escalated`** when a later message for an incident raises the GRIP level or priority, or alerts more units or disciplines: `incident_id`, `address`, `disciplines`, `units`, `priority`, `grip`, `message_count`, `reasons` and the new message's `body`.
 
 ```yaml

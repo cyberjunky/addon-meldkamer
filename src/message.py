@@ -65,6 +65,15 @@ class P2000Message:
     # Spoken form of the message (speakable_body with the TTS replacement rules applied)
     tts: str = ""
 
+    # What the message is about (see message_fields.py): "fire", "traffic", "medical", ... and its label
+    incident_type: str = ""
+    incident_label: str = ""
+    # Reference numbers and codes in the text
+    ride_number: str = ""  # ambulance "rit: 194288"
+    bon_number: str = ""  # "bon 170616"
+    incident_number: str = ""  # "icnum 123456"
+    talk_group: str = ""  # meldkamer gespreksgroep, e.g. "BAD-02"
+    direct_deployment: bool = False  # "(Directe inzet: ja)"
     # Database row id, set once the message is stored
     id: int | None = None
 
@@ -105,6 +114,13 @@ class P2000Message:
             "vehicle_description": self.vehicle_description,
             "vehicle_icon": self.vehicle_icon,
             "tts": self.tts,
+            "incident_type": self.incident_type,
+            "incident_label": self.incident_label,
+            "ride_number": self.ride_number,
+            "bon_number": self.bon_number,
+            "incident_number": self.incident_number,
+            "talk_group": self.talk_group,
+            "direct_deployment": self.direct_deployment,
             "id": self.id,
             "incident_id": self.incident_id,
             "repeats": self.repeats,

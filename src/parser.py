@@ -4,10 +4,11 @@ import logging
 import re
 from datetime import UTC, datetime
 
-from . import vehicle_types
+from . import message_fields, vehicle_types
 from .city_abbreviations import get_city_from_abbreviation
 from .database import Database
 from .message import P2000Message
+from .postcode import full_postcode
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,18 @@ class Parser:
         # Best-effort vehicle/unit classification (icon, photo lookup key)
         self._classify_vehicle(msg)
 
+        # A full postcode in the text ("3068HA") gives a precise position (see postcode.py)
+        if postcode := full_postcode(body):
+            msg.postalcode = postcode
+        # Incident type, reference numbers, talk group
+        for name, value in message_fields.derived_fields(body).items():
+            setattr(msg, name, value)
+        # Without a region from the capcodes, a vehicle named with its type ("ambu 16-107")
+        # has the region in its number (not the bare trailing numbers, which may be anything)
+        if not msg.region:
+            named = vehicle_types.named_vehicles(body)
+            if named:
+                msg.region = message_fields.region_of_vehicle(named[0][0])
         return msg
 
     def _extract_priority(self, text: str) -> int:

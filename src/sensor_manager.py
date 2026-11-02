@@ -63,6 +63,7 @@ class SensorFilter:
     region: str | None = None
     zone: str | None = None  # Home Assistant zone entity id, e.g. "zone.home"
     text_contains: str | None = None
+    incident_types: list[str] | None = None  # see message_fields.INCIDENT_TYPES
 
 
 @dataclass
@@ -168,6 +169,12 @@ class SensorManager:
         if filters.region and (not msg.region or filters.region.lower() not in msg.region.lower()):
             return False
 
+        # Incident type filter (fire, traffic, medical, ...)
+        if filters.incident_types and (msg.incident_type or "") not in {
+            t.strip().lower() for t in filters.incident_types
+        }:
+            return False
+
         # Zone filter: inside the zone's radius (never matches until the zone is read from HA)
         if filters.zone:
             distance = self.zone_distance(msg, sensor)
@@ -218,6 +225,7 @@ def load_sensors_from_config(config_data: list[dict[str, Any]]) -> list[SensorCo
                 region=sensor_data.get("region"),
                 zone=sensor_data.get("zone") or None,
                 text_contains=sensor_data.get("text_contains"),
+                incident_types=parse_csv(sensor_data.get("incident_types")),
             )
 
             mqtt_id = sensor_data.get("mqtt_id")

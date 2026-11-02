@@ -14,6 +14,7 @@ from .geocoding import Geocoder
 from .incidents import IncidentTracker
 from .message import P2000Message
 from .parser import Parser
+from .postcode import postcode_position
 from .publisher import Publisher
 from .sensor_manager import SensorManager
 from .tts import SpeechRules
@@ -137,7 +138,7 @@ class MessageProcessor:
         geocoded = await self._locate(msg)
         # Only for a street-level position: a message placed at the city centre
         # (no street, or the street wasn't geocoded) would get the centre's distance
-        if self.home and msg.location_accuracy == "street":
+        if self.home and msg.location_accuracy in ("street", "postcode"):
             msg.distance_km = distance_km(msg, self.home.latitude, self.home.longitude)
         msg.tts = self.speech.speak(msg)
         incident, escalation = self.incidents.assign(msg)
@@ -169,6 +170,17 @@ class MessageProcessor:
     async def _locate(self, msg: P2000Message) -> bool:
         """Set the message's coordinates. Returns whether OpenCage geocoded it."""
         geocoded = False
+        # A full postcode ("3068HA") covers a few houses: its PDOK position beats a street centroid
+        if msg.postalcode and len(msg.postalcode) == 6:
+            # The PDOK request is synchronous (cached after the first time) - run it off the event loop
+            coords = await asyncio.to_thread(postcode_position, self.database, msg.postalcode)
+            if coords:
+                msg.latitude = coords["latitude"]
+                msg.longitude = coords["longitude"]
+                msg.mapurl = coords["mapurl"]
+                msg.location_accuracy = "postcode"
+                return False
+
         # Street coordinates from the Streets table (BAG import or your own): no OpenCage request needed
         if msg.street and msg.city:
             coords = self.database.get_street_coordinates(msg.street, msg.city)
