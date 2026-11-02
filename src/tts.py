@@ -58,6 +58,22 @@ DEFAULT_TTS_REPLACEMENTS = [
     {"pattern": r"\bPOL\b", "replacement": "Politie"},
     {"pattern": r"\bRAV\b", "replacement": "Regionale ambulancevoorziening"},
     {"pattern": r"\bBR\b", "replacement": "Brand"},
+    # Shortenings and codes that read badly aloud
+    {"pattern": r"\bhind\.", "replacement": "hinderlijke"},
+    {"pattern": r"\bass\.", "replacement": "assistentie"},
+    {"pattern": r"\bivm\b", "replacement": "in verband met"},
+    {"pattern": r"\btbv\b", "replacement": "ten behoeve van"},
+    {"pattern": r"\bevt\.?(?=\s)", "replacement": "eventueel"},
+    {"pattern": r"\bVKO\b", "replacement": "verkeersongeval"},
+    {"pattern": r"\bOMS\s+brandmelding\b|\bOMS\b", "replacement": "automatische brandmelding"},
+    {"pattern": r"\bBMI\b", "replacement": "brandmeldinstallatie"},
+    {"pattern": r"\bAED\b", "replacement": "A E D"},
+    {"pattern": r"\bTS\b", "replacement": "tankautospuit"},
+    {"pattern": r"\bHW\b", "replacement": "hoogwerker"},
+    {"pattern": r"\bHV\b", "replacement": "hulpverlening"},
+    # Road numbers: "N 209" and "A 27" are spoken as a letter and a number, "N209" is not
+    {"pattern": r"\bN(\d{2,3})\b", "replacement": "N \\1"},
+    {"pattern": r"\bA(\d{2})\b", "replacement": "A \\1"},
     # Long standalone numbers (capcodes, other reference numbers) - postal
     # codes are 4 digits and ambulance unit numbers are 5 (e.g. "17341"),
     # so both are left alone; bon/rit/icnum numbers are already stripped
