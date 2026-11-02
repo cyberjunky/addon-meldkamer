@@ -1631,6 +1631,44 @@ class Database:
             logger.error(f"Failed to get messages: {e}")
             return []
 
+    def day_stats(self, hours: int = 24) -> dict[str, Any]:
+        """Messages of the last `hours` hours: per hour (oldest first, empty hours included),
+        per discipline kind, the busiest towns and the total."""
+        now = datetime.now().astimezone()
+        since = (now - timedelta(hours=hours)).isoformat()
+        empty = {"hours": [], "disciplines": {}, "places": [], "total": 0}
+        try:
+            # Timestamps are stored as local ISO strings: the first 13 characters are the hour
+            per_hour = dict(
+                self.cursor.execute(
+                    "SELECT substr(timestamp, 1, 13), COUNT(*) FROM messages WHERE timestamp >= ? GROUP BY 1", (since,)
+                ).fetchall()
+            )
+            disciplines = self.cursor.execute(
+                "SELECT discipline, COUNT(*) FROM messages WHERE timestamp >= ? GROUP BY discipline", (since,)
+            ).fetchall()
+            places = self.cursor.execute(
+                "SELECT city, COUNT(*) FROM messages WHERE timestamp >= ? AND city IS NOT NULL AND city != '' "
+                "GROUP BY city ORDER BY 2 DESC, city LIMIT 8",
+                (since,),
+            ).fetchall()
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get day stats: {e}")
+            return empty
+        start = now.replace(minute=0, second=0, microsecond=0) - timedelta(hours=hours - 1)
+        hour_list = []
+        for i in range(hours):
+            hour = start + timedelta(hours=i)
+            hour_list.append({"hour": hour.isoformat(), "count": per_hour.get(hour.isoformat()[:13], 0)})
+        by_kind = {"brandweer": 0, "ambulance": 0, "politie": 0, "other": 0}
+        total = 0
+        for discipline, count in disciplines:
+            total += count
+            kinds = [k for k in ("brandweer", "ambulance", "politie") if k in (discipline or "").lower()] or ["other"]
+            for kind in kinds:
+                by_kind[kind] += count
+        return {"hours": hour_list, "disciplines": by_kind, "places": [[c, n] for c, n in places], "total": total}
+
     def get_messages_before(self, before: str = "", search: str = "", limit: int = 100) -> list[dict]:
         """Messages older than `before` (ISO timestamp; empty = newest first), newest first,
         optionally matching search in body/address/street/city. Same shape as get_recent_messages."""

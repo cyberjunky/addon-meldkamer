@@ -118,7 +118,7 @@ Access via Home Assistant sidebar → Meldkamer:
 
   The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list (or `j`/`k` and the arrow keys; `1`/`2`/`3` switch views, Escape closes the floating detail). Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech, browser-notification and auto-focus toggles sit in the top bar. Browser notifications (💬, asks the browser for permission once) show new messages of the current feed while the dashboard is in the background; clicking one opens that message. The map shows your home (from Home Assistant's home zone) and the zones your sensors filter on. A message's detail lists which of your sensors it matched, and selecting a message puts `#msg=<id>` in the URL: open the dashboard with that hash (for example from a notification, see the `dashboard_url` event field) and it shows that message, also one that has already left the live list. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
 - **Settings** — Card-based data management for every table below
-- **Info** — Receiver, device and database status, reception quality and message statistics
+- **Info** — Receiver, device, locations and database status, reception quality, statistics (messages per hour and the busiest towns of the last 24 hours, totals by region and discipline) and an overview of your sensors with their filters, matches and last match
 
 ### Settings Tab
 
