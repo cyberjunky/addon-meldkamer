@@ -11,6 +11,37 @@ from .message import P2000Message
 
 logger = logging.getLogger(__name__)
 
+# Common endings of Dutch street names
+STREET_SUFFIXES = (
+    "straat",
+    "weg",
+    "laan",
+    "plein",
+    "singel",
+    "kade",
+    "gracht",
+    "steeg",
+    "pad",
+    "dreef",
+    "hof",
+    "dijk",
+    "park",
+)
+
+
+def looks_like_street(name: str) -> bool:
+    """Whether a street name is clearly a street, not an ordinary word that happens to name one.
+
+    Some BAG streets are named after everyday words ("Dienst", "Contact", "Inzet", "Oost"). Without a
+    town in the message such a word must not pick a street (and with it a town) somewhere in the country.
+    """
+    name = name.strip()
+    if " " in name:
+        return True
+    lower = name.lower()
+    return any(lower.endswith(suffix) and len(lower) > len(suffix) + 2 for suffix in STREET_SUFFIXES)
+
+
 # Priority detection patterns
 PRIO_PATTERNS = [
     (1, r"^A\s?1|\bA\s?1|PRIO\s?1|^P\s?1"),
@@ -190,8 +221,17 @@ class Parser:
                     )
                 logger.debug(f"City match via find_city_in_text: {found_city}")
 
-        # STEP 3: Try to match a known street from BAG data in remaining text
-        street_match = self.database.match_street_in_text(search_text, excluded_words)
+        # STEP 3: Try to match a known street from BAG data in remaining text.
+        # With a known town only that town's streets count; without one, only names that are
+        # clearly a street, so a word like "dienst" or "contact" doesn't place the message
+        # in the one town that has a street of that name. A town that isn't a stored place
+        # (e.g. "Rijswijk ZH" from the abbreviation list, stored as "Rijswijk") can't filter
+        # the streets, so those are searched in every town as before
+        street_match = self.database.match_street_in_text(
+            search_text, excluded_words, city=self.database.find_city_name(msg.city)
+        )
+        if street_match and not msg.city and not looks_like_street(street_match["street"]):
+            street_match = None
         if street_match:
             msg.street = street_match["street"]
 
@@ -260,22 +300,6 @@ class Parser:
                 "Brandweer",
             }
 
-            street_suffixes = [
-                "straat",
-                "weg",
-                "laan",
-                "plein",
-                "singel",
-                "kade",
-                "gracht",
-                "steeg",
-                "pad",
-                "dreef",
-                "hof",
-                "dijk",
-                "park",
-            ]
-
             # Look for words ending with street suffixes
             for i, word in enumerate(words):
                 if word.upper() in skip_words or word in skip_words:
@@ -284,7 +308,7 @@ class Parser:
                     continue
 
                 # Check if word ends with street suffix
-                for suffix in street_suffixes:
+                for suffix in STREET_SUFFIXES:
                     if word.lower().endswith(suffix) and len(word) > len(suffix) + 2:
                         # Found potential street, get preceding words too
                         street_parts = []

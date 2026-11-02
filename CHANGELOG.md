@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: a street was looked up in every town in the country, not just the town in the message. Messages got the postcode of a street of the same name elsewhere ("Kerkstraat Uitgeest" got the postcode of the Kerkstraat in Amsterdam), or a street named after an everyday word ("Inzet", "Dienst", "Contact") put a message in a town it never mentioned. A street now only matches in the message's town; without a town only clear street names (several words, or ending in -straat, -weg, -laan and so on) are matched.
+
 ## 1.3.0
 
 ### Streets import
