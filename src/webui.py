@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import threading
 import time
 from collections import deque
@@ -34,6 +35,8 @@ MAX_REQUEST_SIZE = 50 * 1024 * 1024
 # Vehicle photo uploads (multipart, which client_max_size does not bound)
 MAX_PHOTO_SIZE = 5 * 1024 * 1024
 MAX_FORM_FIELD_SIZE = 4 * 1024
+# A restored database backup (multipart upload, streamed to disk)
+MAX_RESTORE_SIZE = 2 * 1024 * 1024 * 1024
 PHOTO_MIME_TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif")
 
 
@@ -317,6 +320,8 @@ class WebUI:
 
         # Database reset
         self.app.router.add_delete("/api/db/reset", self._handle_reset_database)
+        self.app.router.add_get("/api/db/backup", self._handle_backup)
+        self.app.router.add_post("/api/db/restore", self._handle_restore)
         # Clear a single table
         self.app.router.add_delete("/api/db/clear/{table}", self._handle_clear_table)
 
@@ -980,6 +985,75 @@ class WebUI:
         elif table == "vehicles":
             self._vehicles_changed()
         return web.json_response({"success": True, "deleted": count})
+
+    async def _handle_backup(self, request: web.Request) -> web.StreamResponse:
+        """Download a consistent copy of the whole database."""
+        if busy := self._import_running():
+            return web.json_response({"error": busy}, status=409)
+        path = self.database.db_path + ".backup.tmp"
+        try:
+            await asyncio.to_thread(self.database.backup_to, path)
+            name = f"meldkamer-{datetime.now().strftime('%Y%m%d-%H%M')}.sqlite3"
+            response = web.StreamResponse(
+                headers={
+                    "Content-Type": "application/vnd.sqlite3",
+                    "Content-Disposition": f'attachment; filename="{name}"',
+                    "Content-Length": str(os.path.getsize(path)),
+                }
+            )
+            await response.prepare(request)
+            with open(path, "rb") as f:
+                while chunk := f.read(1024 * 1024):
+                    await response.write(chunk)
+            await response.write_eof()
+            return response
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(path)
+
+    async def _handle_restore(self, request: web.Request) -> web.Response:
+        """Replace the database with an uploaded backup (multipart form: file)."""
+        if busy := self._import_running():
+            return web.json_response({"error": busy}, status=409)
+        path = self.database.db_path + ".restore.tmp"
+        size = 0
+        try:
+            reader = await request.multipart()
+            with open(path, "wb") as f:
+                async for part in reader:
+                    if not isinstance(part, aiohttp.BodyPartReader) or part.name != "file":
+                        continue
+                    while chunk := await part.read_chunk(1024 * 1024):
+                        size += len(chunk)
+                        if size > MAX_RESTORE_SIZE:
+                            return web.json_response({"error": "Backup too large"}, status=400)
+                        f.write(chunk)
+            if not size:
+                return web.json_response({"error": "No file uploaded"}, status=400)
+            if problem := self.database.check_backup(path):
+                return web.json_response({"error": problem}, status=400)
+
+            await asyncio.to_thread(self.database.replace_with, path)
+            self._tts_changed()
+            self._ignore_changed()
+            self.messages.clear()
+            self.messages.extend(self.database.get_recent_messages(MAX_MESSAGES))
+            self.stats["total_messages"] = self.database.get_message_count()
+            self.stats["by_region"] = {}
+            self.stats["by_discipline"] = {}
+            self._save_stats()
+            stats = self.database.get_stats()
+            self.update_db_stats(
+                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"]
+            )
+            logger.info(f"Database restored from an uploaded backup ({size} bytes, {stats['messages']} messages)")
+            return web.json_response({"success": True, "messages": stats["messages"]})
+        except Exception as e:
+            logger.error(f"Restore failed: {e}")
+            return web.json_response({"error": f"Restore failed: {e}"}, status=500)
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(path)
 
     async def _handle_reset_database(self, request: web.Request) -> web.Response:
         """Reset the database - delete all data and recreate schema."""
@@ -1892,7 +1966,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .chart-legend-item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .chart-legend-item .count { font-family: var(--mono); color: var(--secondary-text-color); margin-left: auto; padding-left: 8px; flex-shrink: 0; }
 
-        /* ---------- Settings tab ---------- */
+        /* ---------- Data tab ---------- */
+        .danger-zone {
+            margin-top: 18px; padding: 14px 16px; border: 1px solid var(--danger-color); border-radius: 8px;
+            display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+        }
+        .danger-zone .db-card-title { color: var(--danger-color); }
         .db-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
         .db-toolbar-left { display: flex; align-items: center; gap: 10px; }
         .db-toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -2064,7 +2143,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <button type="button" class="tab" data-tab="wallboard" onclick="switchTab('wallboard')">Wallboard</button>
             <button type="button" class="tab" data-tab="lanes" onclick="switchTab('lanes')">Lanes</button>
             <span class="tab-sep" aria-hidden="true"></span>
-            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Settings"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Data: imports, tables, backup"><span class="tab-label">Data</span><span class="tab-icon" aria-hidden="true">🗄</span></button>
             <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
         </nav>
         <span class="spacer"></span>
@@ -2095,7 +2174,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 <div class="feed">
                     <div id="setup-hint" class="setup-hint" hidden>
                         <span id="setup-hint-text"></span>
-                        <button type="button" class="btn btn-primary" onclick="switchTab('settings')">Open Settings</button>
+                        <button type="button" class="btn btn-primary" onclick="switchTab('settings')">Open Data</button>
                         <button type="button" class="btn" onclick="dismissSetupHint()" title="Hide until the next visit">✕</button>
                     </div>
                     <div class="feed-tools">
@@ -2293,9 +2372,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     <div id="db-landing">
                         <div class="db-toolbar">
                             <span class="db-table-title">Database setup</span>
-                            <button class="btn btn-danger" onclick="dbResetDatabase()">Reset database</button>
                         </div>
-                        <div class="panel-sub" style="margin-bottom: 14px;">Load the reference data in order - each step improves message parsing, badges and map pins.</div>
+                        <div class="panel-sub" style="margin-bottom: 14px;">Load the reference data in order - each step improves message parsing, badges and map pins. The add-on's options (receiver, geocoding, sensors, announcements) are on its Configuration tab in Home Assistant.</div>
 
                         <div class="db-cards">
                             <div class="db-card">
@@ -2440,6 +2518,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                     <button class="btn" onclick="dbOpenTable('vehicles')">Manage</button>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="panel-sub" style="margin: 18px 0 10px;">Backup</div>
+                        <div class="db-cards">
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Backup and restore</span>
+                                </div>
+                                <div class="db-card-desc">Download the whole database as one file - messages, imports, your edits, filters and photos - or restore such a file, for example on new hardware. Home Assistant backups include the database too.</div>
+                                <div class="db-card-actions">
+                                    <button class="btn btn-primary" onclick="dbDownloadBackup()">Download backup</button>
+                                    <button class="btn" onclick="dbRestoreDialog()">Restore from backup</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="danger-zone">
+                            <span class="db-card-title">Danger zone</span>
+                            <div class="db-card-desc">Reset deletes everything in the database: messages, capcodes, places, streets, geocodes, texts, TTS replacements, filters, vehicles and photos. Download a backup first.</div>
+                            <button class="btn btn-danger" onclick="dbResetDatabase()">Reset database</button>
                         </div>
 
                     </div>
@@ -5103,6 +5201,48 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         }
                     })
                     .catch(() => toast('Clear failed', 'error'));
+            });
+        }
+
+        function dbDownloadBackup() {
+            window.location.href = `${basePath}api/db/backup`;
+        }
+
+        function dbRestoreDialog() {
+            const overlay = openModal({
+                title: 'Restore from backup',
+                bodyHTML: `
+                    <div class="panel-sub">Replaces the whole database with the uploaded file (a backup downloaded here). Everything currently in the database is lost - download a backup first if in doubt. The dashboard reloads afterwards.</div>
+                    <div class="form-field" style="margin-top: 12px;">
+                        <label>Backup file</label>
+                        <input type="file" class="input" data-file accept=".sqlite3,.sqlite,.db" style="padding-top: 4px;">
+                    </div>`,
+                footHTML: `<button class="btn" data-close>Cancel</button><button class="btn btn-danger" data-restore disabled>Restore</button>`
+            });
+            const input = overlay.querySelector('[data-file]');
+            const button = overlay.querySelector('[data-restore]');
+            input.addEventListener('change', () => { button.disabled = !input.files.length; });
+            button.addEventListener('click', () => {
+                const file = input.files[0];
+                if (!file) return;
+                button.disabled = true;
+                button.textContent = 'Restoring…';
+                const form = new FormData();
+                form.append('file', file);
+                fetch(`${basePath}api/db/restore`, {method: 'POST', body: form})
+                    .then(r => r.json())
+                    .then(result => {
+                        if (result.error) {
+                            toast(result.error, 'error');
+                            button.disabled = false;
+                            button.textContent = 'Restore';
+                            return;
+                        }
+                        closeModal();
+                        toast(`Database restored (${result.messages} messages) - reloading…`, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    })
+                    .catch(() => { toast('Restore failed', 'error'); button.disabled = false; button.textContent = 'Restore'; });
             });
         }
 
