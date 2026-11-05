@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Streets and towns with accents in their name are recognised: P2000 messages are sent without accents, so "Belgielaan" now finds "Belgiëlaan", "Burgemeester Roellstraat" finds "Burgemeester Röellstraat" and "Loenga" finds "Loënga". Over 3,500 BAG streets have an accent. The street keeps its official spelling.
+- A street found by its ending (-straat, -weg, -laan, …) when it isn't in the Streets table no longer takes in the codes and words before it: "P 1 BNH-01 Woningbrand Kerkstraat" gives "Kerkstraat" instead of "1 BNH-01 Woningbrand Kerkstraat", and "A2 AMBU 17142 2e Middellandstraat" gives "2e Middellandstraat".
 
 ## 1.4.3
 

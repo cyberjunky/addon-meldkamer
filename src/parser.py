@@ -30,6 +30,44 @@ STREET_SUFFIXES = (
 )
 
 
+STREET_NAME_CONNECTORS = {"van", "de", "den", "der", "het", "ter", "ten", "op", "aan", "in", "t", "'t", "s", "'s"}
+# A name word: a capital followed by a lowercase letter ("Burgemeester", "Jan", "Kortenaer-Noord"), or an ordinal ("2e")
+_STREET_NAME_WORD_RE = re.compile(r"^(?:[A-Z][a-z\u00e0-\u00ff][\w'.]*(?:-[A-Za-z][\w'.]*)*|\d{1,2}e)$")
+# Capitalised words that P2000 texts put before an address but that are no part of it
+_NOT_STREET_NAME_WORDS = {
+    "ambulance",
+    "ambulancepost",
+    "ambu",
+    "brandweer",
+    "brandweerkazerne",
+    "kazerne",
+    "politie",
+    "melding",
+    "ongeval",
+    "nacontrole",
+    "buitensluiting",
+    "binnensluiting",
+    "afhijsen",
+    "reanimatie",
+    "prio",
+    "test",
+    "oefening",
+}
+
+
+def is_street_name_word(word: str) -> bool:
+    """Whether a word can be part of a street name before its last word ("Burgemeester van ...straat").
+
+    Message codes are not: priorities ("A1", "P", "2"), talk groups ("BAD-01"), capitals ("CO-melder", "BR"),
+    and neither are incident words such as "Woningbrand" or "Assistentie".
+    """
+    if word.lower() in STREET_NAME_CONNECTORS:
+        return True
+    if not _STREET_NAME_WORD_RE.match(word) or word.lower() in _NOT_STREET_NAME_WORDS:
+        return False
+    return not message_fields.is_incident_word(word)
+
+
 def looks_like_street(name: str) -> bool:
     """Whether a street name is clearly a street, not an ordinary word that happens to name one.
 
@@ -339,16 +377,14 @@ class Parser:
                 # Check if word ends with street suffix
                 for suffix in STREET_SUFFIXES:
                     if word.lower().endswith(suffix) and len(word) > len(suffix) + 2:
-                        # Found potential street, get preceding words too
-                        street_parts = []
-                        for j in range(max(0, i - 3), i + 1):
-                            w = words[j]
-                            if (
-                                w[0].isupper()
-                                or w.lower() in ["van", "de", "den", "het", "ter", "ten", "op"]
-                                or (w.isdigit() and len(w) <= 4)
-                            ):
-                                street_parts.append(w)
+                        # Found potential street: add the name words right before it ("Burgemeester",
+                        # "van", "2e"), stopping at the first word that isn't one, so codes such as
+                        # "A1", "P 2", "BAD-01" or "CO-melder" don't end up in the street name
+                        street_parts = [word]
+                        for j in range(i - 1, max(-1, i - 4), -1):
+                            if not is_street_name_word(words[j]):
+                                break
+                            street_parts.insert(0, words[j])
 
                         if street_parts:
                             msg.street = " ".join(street_parts)

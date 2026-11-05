@@ -52,6 +52,12 @@ _INCIDENT_RULES = [
 
 INCIDENT_TYPES = {kind: label for kind, label, _ in _INCIDENT_RULES}
 
+
+def is_incident_word(word: str) -> bool:
+    """Whether a single word names an incident ("Woningbrand", "Assistentie", "Stank"), not a place or street."""
+    return any(pattern.fullmatch(word) for _, _, pattern in _INCIDENT_RULES)
+
+
 # Meldkamer gespreksgroep prefixes used in P2000 texts ("BAD-02")
 _TALK_GROUPS = {"BAD", "BDH", "BLB", "BMD", "BNH", "BNN", "BOB", "BON", "BRT", "BZB"}
 
