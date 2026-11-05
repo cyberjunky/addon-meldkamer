@@ -31,8 +31,11 @@ STREET_SUFFIXES = (
 
 
 STREET_NAME_CONNECTORS = {"van", "de", "den", "der", "het", "ter", "ten", "op", "aan", "in", "t", "'t", "s", "'s"}
-# A name word: a capital followed by a lowercase letter ("Burgemeester", "Jan", "Kortenaer-Noord"), or an ordinal ("2e")
-_STREET_NAME_WORD_RE = re.compile(r"^(?:[A-Z][a-z\u00e0-\u00ff][\w'.]*(?:-[A-Za-z][\w'.]*)*|\d{1,2}e)$")
+# A name word: a capital followed by a lowercase letter ("Burgemeester", "Jan", "Kortenaer-Noord"),
+# an ordinal ("2e") or dotted initials ("J.P.", "H.J.E.")
+_STREET_NAME_WORD_RE = re.compile(
+    r"^(?:[A-Z][a-z\u00e0-\u00ff][\w'.]*(?:-[A-Za-z][\w'.]*)*|\d{1,2}e|(?:[A-Z]\.){1,4})$"
+)
 # Capitalised words that P2000 texts put before an address but that are no part of it
 _NOT_STREET_NAME_WORDS = {
     "ambulance",
