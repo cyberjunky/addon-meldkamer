@@ -63,9 +63,19 @@ def get_provinces() -> list[str]:
     return PROVINCES
 
 
+# A batch of provinces imported one after the other. The queue lives here, in the add-on,
+# so closing the page, a reload or a dropped connection can't stop it half way
+_batch: dict[str, Any] = {"batch_running": False, "batch_total": 0, "batch_index": 0, "batch_results": []}
+
+
 def get_import_progress() -> dict[str, Any]:
-    """Get current import progress."""
-    return _import_progress.copy()
+    """Get current import progress; `running` stays true between the provinces of a batch."""
+    progress = _import_progress.copy()
+    progress.update(_batch)
+    progress["batch_results"] = list(_batch["batch_results"])
+    if _batch["batch_running"]:
+        progress["running"] = True
+    return progress
 
 
 def reset_progress(province: str = "") -> None:
@@ -93,10 +103,60 @@ def try_start_import(province: str = "") -> bool:
     if province and province not in PROVINCES:
         raise ValueError(f"Unknown province: {province!r}")
     with _start_lock:
-        if _import_progress.get("running"):
+        if _import_progress.get("running") or _batch["batch_running"]:
             return False
         reset_progress(province)
         return True
+
+
+def try_start_batch(provinces: list[str]) -> bool:
+    """Atomically check that no import is running and mark a batch of provinces as started.
+
+    Call this before starting the thread that runs import_provinces(). Returns
+    False if an import is already running; raises ValueError for an empty list
+    or an unknown province.
+    """
+    unknown = [p for p in provinces if p not in PROVINCES]
+    if not provinces or unknown:
+        raise ValueError(f"Unknown province(s): {unknown}" if unknown else "No provinces given")
+    with _start_lock:
+        if _import_progress.get("running") or _batch["batch_running"]:
+            return False
+        _batch.update({"batch_running": True, "batch_total": len(provinces), "batch_index": 0, "batch_results": []})
+        reset_progress(provinces[0])
+        return True
+
+
+def import_provinces(provinces: list[str], database) -> list[dict[str, Any]]:
+    """Import several provinces one after the other (after try_start_batch).
+
+    A province that fails is recorded and the next one still runs. Returns the
+    per-province results, which the progress also carries as batch_results.
+    """
+    try:
+        for index, province in enumerate(provinces):
+            _batch["batch_index"] = index
+            if index:
+                reset_progress(province)
+            try:
+                result = import_province_data(province, database)
+                ok = _import_progress.get("percent") == 100
+                status = _import_progress.get("status", "")
+            except Exception as e:
+                logger.error(f"BAG import of {province} failed: {e}")
+                result, ok, status = {"cities": 0, "streets": 0}, False, f"Error: {e}"
+            _batch["batch_results"].append(
+                {
+                    "province": province,
+                    "ok": ok,
+                    "cities": result["cities"],
+                    "streets": result["streets"],
+                    "status": status,
+                }
+            )
+    finally:
+        _batch["batch_running"] = False
+    return list(_batch["batch_results"])
 
 
 def _warn(message: str) -> None:

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: importing several provinces with Import BAG could stop after a few. The list of provinces was kept by the dashboard page, so one failed progress request (Home Assistant renewing its session, a short network drop, a tab in the background) or leaving the page ended the run while the add-on was still busy. The add-on now runs the whole list itself; the page only shows the progress ("3/12 Gelderland 45%"), keeps trying when a request fails, and picks a running import up again after a reload. A province that fails is reported by name and the others still run.
+
 ## 1.4.4
 
 **After updating:** nothing to do.
