@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**After updating:** run **Import BAG** again for Zuid-Holland, Noord-Holland, Utrecht and Gelderland.
+
+- Import BAG finds the streets of towns with two small words in their name: Alphen aan den Rijn, Capelle aan den IJssel, Koog aan de Zaan, Ouderkerk aan de Amstel and 10 more had none (3,044 streets). Streets are now looked up by the woonplaats code instead of its name, which also stops fetching the streets of other towns with a similar name.
+
 ## 1.4.4
 
 **After updating:** nothing to do.
