@@ -4,6 +4,8 @@
 
 - Streets and towns with accents in their name are recognised: P2000 messages are sent without accents, so "Belgielaan" now finds "Belgiëlaan", "Burgemeester Roellstraat" finds "Burgemeester Röellstraat" and "Loenga" finds "Loënga". Over 3,500 BAG streets have an accent. The street keeps its official spelling.
 - A street found by its ending (-straat, -weg, -laan, …) when it isn't in the Streets table no longer takes in the codes and words before it: "P 1 BNH-01 Woningbrand Kerkstraat" gives "Kerkstraat" instead of "1 BNH-01 Woningbrand Kerkstraat", and "A2 AMBU 17142 2e Middellandstraat" gives "2e Middellandstraat".
+- After a BAG import of several provinces the message says "new places" and "new streets", like the status of one province; Import All Places ends in phase "Complete"; and the Locatieserver paging limit is no longer logged as a warning when the postcodes are fetched per area anyway.
+- The Sensors description on the Configuration tab mentions `incident_types` and its values.
 
 ## 1.4.3
 
