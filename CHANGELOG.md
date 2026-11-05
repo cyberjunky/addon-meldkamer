@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.4.4
+
+**After updating:** nothing to do.
 
 - A street found by its ending keeps dotted initials in front of it: "J.P. Coenstraat", "H.J.E. Wenckebachweg".
 - Streets and towns with accents in their name are recognised: P2000 messages are sent without accents, so "Belgielaan" now finds "Belgiëlaan", "Burgemeester Roellstraat" finds "Burgemeester Röellstraat" and "Loenga" finds "Loënga". Over 3,500 BAG streets have an accent. The street keeps its official spelling.
