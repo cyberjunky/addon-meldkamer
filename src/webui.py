@@ -271,6 +271,7 @@ class WebUI:
 
         # BAG Data Import (Dutch address data by province)
         self.app.router.add_get("/api/db/bag/provinces", self._handle_list_provinces)
+        self.app.router.add_post("/api/db/bag/import", self._handle_import_provinces)
         self.app.router.add_post("/api/db/bag/import/{province}", self._handle_import_province)
         self.app.router.add_post("/api/db/bag/import-all-places", self._handle_import_all_places)
         self.app.router.add_get("/api/db/bag/progress", self._handle_bag_progress)
@@ -843,29 +844,35 @@ class WebUI:
         provinces = bag_import.get_provinces()
         return web.json_response({"provinces": provinces, "imported": self.database.street_provinces()})
 
+    def _start_bag_import(self, provinces: list[str]) -> web.Response:
+        """Start the BAG import of the provinces, one after the other, in a background thread.
+
+        The add-on runs the whole list itself: the page only follows the progress,
+        so a reload or a dropped connection doesn't stop the remaining provinces.
+        """
+        unknown = [p for p in provinces if p not in bag_import.PROVINCES]
+        if not provinces or unknown:
+            return web.json_response(
+                {"error": f"Unknown province(s): {', '.join(map(str, unknown)) or 'none given'}"}, status=400
+            )
+        if busy := self._import_running():
+            return web.json_response({"error": busy}, status=409)
+        if not bag_import.try_start_batch(provinces):
+            return web.json_response({"error": "Import already in progress"}, status=409)
+        threading.Thread(target=bag_import.import_provinces, args=(provinces, self.database), daemon=True).start()
+        return web.json_response({"started": True, "provinces": provinces})
+
+    async def _handle_import_provinces(self, request: web.Request) -> web.Response:
+        """Start the BAG import of several provinces (JSON body: {"provinces": [...]})."""
+        data = await _json_object(request)
+        provinces = data.get("provinces")
+        if not isinstance(provinces, list) or not all(isinstance(p, str) for p in provinces):
+            return web.json_response({"error": "provinces must be a list of province names"}, status=400)
+        return self._start_bag_import(list(dict.fromkeys(provinces)))
+
     async def _handle_import_province(self, request: web.Request) -> web.Response:
-        """Start BAG import for a specific Dutch province in background thread."""
-
-        province = request.match_info.get("province", "")
-        if province not in bag_import.PROVINCES:
-            return web.json_response({"error": f"Unknown province '{province}'"}, status=400)
-
-        # Check if already running
-        if bag_import.get_import_progress().get("running"):
-            return web.json_response({"error": "Import already in progress"}, status=400)
-
-        # Reset progress BEFORE starting thread to avoid race condition
-        bag_import.reset_progress(province)
-
-        # Start import in background thread
-        def run_import():
-            bag_import.import_province_data(province, self.database)
-
-        thread = threading.Thread(target=run_import, daemon=True)
-        thread.start()
-
-        # Return immediately - client will poll for progress
-        return web.json_response({"started": True, "province": province})
+        """Start the BAG import of one province."""
+        return self._start_bag_import([request.match_info.get("province", "")])
 
     async def _handle_import_all_places(self, request: web.Request) -> web.Response:
         """Import ALL Dutch woonplaatsen (places) into database."""
@@ -4880,6 +4887,52 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         // ----- BAG import -----
         let bagProgressInterval = null;
 
+        // Follow a running BAG import. The add-on runs the whole list of provinces itself, so this
+        // only watches: a failed poll is retried, and after a reload the page picks it up again
+        function bagWatch(btn) {
+            if (bagProgressInterval) return;
+            if (btn) {
+                if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = '⏳ Starting…';
+            }
+            let failures = 0;
+            bagProgressInterval = setInterval(() => {
+                fetch(`${basePath}api/db/bag/progress`)
+                    .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+                    .then(p => {
+                        failures = 0;
+                        if (p.running) {
+                            const prefix = p.batch_total > 1 ? `${p.batch_index + 1}/${p.batch_total} ` : '';
+                            if (btn) btn.textContent = `⏳ ${prefix}${p.province || ''} ${p.percent}%`;
+                            return;
+                        }
+                        clearInterval(bagProgressInterval);
+                        bagProgressInterval = null;
+                        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label; }
+                        bagSummary(p);
+                        dbLoadStats();  // also refreshes the province chips
+                        if (dbCurrentTable) dbLoadData();
+                    })
+                    .catch(() => {
+                        failures += 1;
+                        if (failures >= 10 && btn) btn.textContent = '⏳ reconnecting…';
+                    });
+            }, 1000);
+        }
+
+        function bagSummary(p) {
+            const results = p.batch_results || [];
+            const ok = results.filter(r => r.ok);
+            const failed = results.filter(r => !r.ok);
+            if (ok.length) {
+                const streets = ok.reduce((sum, r) => sum + (r.streets || 0), 0);
+                const cities = ok.reduce((sum, r) => sum + (r.cities || 0), 0);
+                toast(`BAG import complete: ${ok.length} province(s), ${cities} new places, ${streets} new streets`, 'success');
+            }
+            failed.forEach(r => toast(`BAG import of ${r.province} failed: ${r.status || 'unknown error'}`, 'error'));
+        }
+
         function dbImportBAG(btn) {
             fetch(`${basePath}api/db/bag/provinces`)
                 .then(r => r.json())
@@ -4924,72 +4977,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         if (!queue.length) return;
                         closeModal();
 
-                        // Progress in the button itself, same as Import All Places
-                        const origLabel = btn ? btn.textContent : '';
-                        if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting…'; }
-                        const resetBtn = () => { if (btn) { btn.disabled = false; btn.textContent = origLabel; } };
-
-                        const stopPolling = () => {
-                            if (bagProgressInterval) { clearInterval(bagProgressInterval); bagProgressInterval = null; }
-                        };
-
-                        // Import one province and resolve with its final progress.
-                        // Poll only once the server has reset progress for this run,
-                        // or the first poll can read the previous run's result
-                        const importOne = (province, index) => new Promise((resolve, reject) => {
-                            const prefix = queue.length > 1 ? `${index + 1}/${queue.length} ` : '';
-                            fetch(`${basePath}api/db/bag/import/${encodeURIComponent(province)}`, {method: 'POST'})
-                                .then(r => r.json())
-                                .then(result => {
-                                    if (result.error) { reject(new Error(result.error)); return; }
-                                    stopPolling();
-                                    bagProgressInterval = setInterval(() => {
-                                        fetch(`${basePath}api/db/bag/progress`)
-                                            .then(r => r.json())
-                                            .then(p => {
-                                                if (btn) btn.textContent = `⏳ ${prefix}${p.percent}%`;
-                                                if (!p.running) { stopPolling(); resolve(p); }
-                                            })
-                                            .catch(() => { stopPolling(); reject(new Error('Lost track of BAG import progress')); });
-                                    }, 500);
-                                })
-                                .catch(() => reject(new Error('BAG import failed')));
-                        });
-
-                        // Run the selected provinces one after the other (the server allows one import at a time)
-                        const results = [];
-                        const runNext = index => {
-                            if (index >= queue.length) {
-                                const ok = results.filter(r => r.ok);
-                                const failed = results.filter(r => !r.ok);
-                                const streets = ok.reduce((sum, r) => sum + (r.streets || 0), 0);
-                                const cities = ok.reduce((sum, r) => sum + (r.cities || 0), 0);
-                                if (ok.length) {
-                                    toast(`BAG import complete: ${ok.length} province(s), ${cities} new places, ${streets} new streets`, 'success');
-                                }
-                                if (failed.length) {
-                                    toast(`BAG import failed for: ${failed.map(r => r.province).join(', ')}`, 'error');
-                                }
-                                resetBtn();
-                                // Also refreshes the province chips (dbLoadProvinces)
-                                dbLoadStats();
-                                if (dbCurrentTable) dbLoadData();
-                                return;
-                            }
-                            const province = queue[index];
-                            importOne(province, index)
-                                .then(p => {
-                                    const ok = p.percent >= 100;
-                                    results.push({province, ok, cities: p.cities, streets: p.streets});
-                                    if (!ok) toast(`BAG import of ${province} failed: ` + (p.status || 'unknown error'), 'error');
-                                })
-                                .catch(err => {
-                                    results.push({province, ok: false});
-                                    toast(`BAG import of ${province} failed: ${err.message}`, 'error');
-                                })
-                                .then(() => runNext(index + 1));
-                        };
-                        runNext(0);
+                        // One request with the whole list: the add-on imports them one after the other
+                        fetch(`${basePath}api/db/bag/import`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({provinces: queue})
+                        })
+                            .then(r => r.json())
+                            .then(result => {
+                                if (result.error) toast(result.error, 'error');
+                                else bagWatch(btn);
+                            })
+                            .catch(() => toast('Could not start the BAG import', 'error'));
                     });
                 })
                 .catch(() => toast('Failed to load provinces', 'error'));
@@ -5309,6 +5308,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         // Load database node counts on page load
         setTimeout(dbLoadStats, 100);
+        // A BAG import that is still running in the add-on: show its progress again
+        fetch(`${basePath}api/db/bag/progress`).then(r => r.json()).then(p => {
+            if (p.running && p.batch_total) bagWatch(document.querySelector('[onclick="dbImportBAG(this)"]'));
+        }).catch(() => {});
     </script>
 </body>
 </html>
