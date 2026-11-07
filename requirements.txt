@@ -1,0 +1,5 @@
+# Python dependencies installed with pip in the Dockerfile (Dependabot keeps them current).
+# (py3-requests and py3-geopy come from Alpine's apk packages, not pip.)
+# paho-mqtt is held below 2.0 because the add-on uses the 1.x callback API.
+aiohttp>=3.9,<4
+paho-mqtt>=1.6.1,<2

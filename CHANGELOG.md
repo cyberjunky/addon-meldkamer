@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Project tooling, no functional change: the Python dependencies are listed in `requirements.txt` so Dependabot keeps them and the base image and workflow actions current; a lint workflow checks the code on every push and pull request; a security policy (`SECURITY.md`) says how to report a vulnerability.
+
 ## 1.4.4
 
 **After updating:** nothing to do.
