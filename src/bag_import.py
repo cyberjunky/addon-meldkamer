@@ -359,7 +359,7 @@ def _fetch_postcode_docs(woonplaats: str, fq: str) -> tuple[list[dict], bool]:
     return docs, complete
 
 
-def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
+def _fetch_streets_for_woonplaats(woonplaats: str, codes: list[str] | None = None) -> list[dict[str, Any]]:
     """
     Fetch unique streets for a woonplaats from PDOK Locatieserver.
     Uses the 'type:weg' (street) search which returns one record per street.
@@ -369,8 +369,15 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
     The street's centroid (centroide_ll) gives its coordinates.
     Returns list of dicts with: street, postcode, latitude, longitude
     """
-    # fq with a quoted value handles multi-word names like "Hoek van Holland"
-    fq = f"woonplaatsnaam:{_solr_quote(woonplaats)}"
+    # Filter on the woonplaats code(s): the name filter finds nothing for names with two
+    # small words in a row ("Alphen aan den Rijn", "Koog aan de Zaan" give 0 results) and
+    # also returns the streets of other places that contain the name ("Etten" -> Etten-Leur).
+    # Some names have more than one code in a province (two "Beek" in Gelderland).
+    if codes:
+        fq = "woonplaatscode:(" + " OR ".join(codes) + ")"
+    else:
+        # fq with a quoted value handles multi-word names like "Hoek van Holland"
+        fq = f"woonplaatsnaam:{_solr_quote(woonplaats)}"
     # Keyed by the case-folded name: BAG has some streets in two spellings ("De Akkers" and
     # "de Akkers", "WEINTERP" and "Weinterp"). The first spelling seen (from the street
     # results, which carry the position) is kept; the postcode results only fill in its postcode
@@ -415,11 +422,12 @@ def _fetch_streets_for_woonplaats(woonplaats: str) -> list[dict[str, Any]]:
     return result
 
 
-def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | None, float | None]]:
+def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | None, float | None, list[str]]]:
     """
     Fetch all woonplaatsen for a province via the PDOK Locatieserver.
 
-    Returns {woonplaats: (latitude, longitude)} of its centroid, sorted by name.
+    Returns {woonplaats: (latitude, longitude, [woonplaatscode, ...])}, with the centroid of
+    the first woonplaats of that name, sorted by name.
 
     Replaces the old, fragile CBS OData lookup with the same PDOK API that
     the places import already uses successfully.
@@ -434,7 +442,7 @@ def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | N
         {
             "q": "type:woonplaats",
             "fq": f"provincienaam:{_solr_quote(PDOK_PROVINCE_NAMES.get(province, province))}",
-            "fl": "woonplaatsnaam,centroide_ll",
+            "fl": "woonplaatsnaam,woonplaatscode,centroide_ll",
         },
         f"woonplaatsen of {province}",
         on_page,
@@ -446,7 +454,10 @@ def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | N
     for doc in docs:
         name = doc.get("woonplaatsnaam", "").strip()
         if name and len(name) >= 2:
-            woonplaatsen.setdefault(name, _parse_point(doc.get("centroide_ll", "")))
+            codes = woonplaatsen.setdefault(name, (*_parse_point(doc.get("centroide_ll", "")), []))[2]
+            code = str(doc.get("woonplaatscode", "")).strip()
+            if code.isdigit() and code not in codes:
+                codes.append(code)
 
     result = dict(sorted(woonplaatsen.items()))
     logger.info(f"Found {len(result)} woonplaatsen in {province}")
@@ -486,7 +497,7 @@ def import_province_data(province: str, database) -> dict[str, Any]:
         logger.info(f"Importing {len(woonplaatsen)} woonplaatsen for {province}")
 
         # Process each woonplaats
-        for i, (woonplaats, (latitude, longitude)) in enumerate(woonplaatsen.items()):
+        for i, (woonplaats, (latitude, longitude, codes)) in enumerate(woonplaatsen.items()):
             # Update progress
             percent = int((i / len(woonplaatsen)) * 100)
             _import_progress.update(
@@ -515,7 +526,7 @@ def import_province_data(province: str, database) -> dict[str, Any]:
 
             # Fetch and add streets (one transaction per woonplaats)
             try:
-                streets = _fetch_streets_for_woonplaats(woonplaats)
+                streets = _fetch_streets_for_woonplaats(woonplaats, codes)
                 streets_added += database.add_streets(city_id, streets)
             except Exception as e:
                 _warn(f"Failed to import streets for {woonplaats}: {e}")

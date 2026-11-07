@@ -5,6 +5,9 @@
 - Project tooling, no functional change: the Python dependencies are listed in `requirements.txt` so Dependabot keeps them and the base image and workflow actions current; a lint workflow checks the code on every push and pull request; a security policy (`SECURITY.md`) says how to report a vulnerability.
 - Fixed: importing several provinces with Import BAG could stop after a few. The list of provinces was kept by the dashboard page, so one failed progress request (Home Assistant renewing its session, a short network drop, a tab in the background) or leaving the page ended the run while the add-on was still busy. The add-on now runs the whole list itself; the page only shows the progress ("3/12 Gelderland 45%"), keeps trying when a request fails, and picks a running import up again after a reload. A province that fails is reported by name and the others still run.
 
+**After updating:** run **Import BAG** again for Zuid-Holland, Noord-Holland, Utrecht and Gelderland.
+- Import BAG finds the streets of towns with two small words in their name: Alphen aan den Rijn, Capelle aan den IJssel, Koog aan de Zaan, Ouderkerk aan de Amstel and 10 more had none (3,044 streets). Streets are now looked up by the woonplaats code instead of its name, which also stops fetching the streets of other towns with a similar name.
+
 ## 1.4.4
 
 **After updating:** nothing to do.
