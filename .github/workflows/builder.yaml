@@ -3,21 +3,9 @@
 # Based on https://github.com/home-assistant/apps-example
 name: Builder
 
+# Meldkamer is built in cyberjunky/home-assistant-apps now; this repository only forwards
+# existing installations to that image. Manual runs only.
 on:
-  pull_request:
-    branches:
-      - main
-    paths: &build-paths
-      - config.yaml
-      - Dockerfile
-      - requirements.txt
-      - rootfs/**
-      - src/**
-      - .github/workflows/builder.yaml
-  push:
-    branches:
-      - main
-    paths: *build-paths
   workflow_dispatch:
 
 permissions:

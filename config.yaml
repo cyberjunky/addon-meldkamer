@@ -1,16 +1,17 @@
 name: Meldkamer
-version: "1.4.4"
+version: "1.4.6"
 slug: "meldkamer"
 description: "P2000 FLEX pager decoder dashboard for Home Assistant - decode Dutch emergency services messages using RTL-SDR or HackRF"
-url: https://github.com/cyberjunky/addon-meldkamer
+url: https://github.com/cyberjunky/home-assistant-apps/tree/main/app-meldkamer
 # The dashboard map needs core's map_tiles proxy (added in 2026.9)
 homeassistant: "2026.9.0"
 init: false
 arch:
   - aarch64
   - amd64
-# Prebuilt by .github/workflows/builder.yaml; bump `version` to publish a new image
-image: "ghcr.io/cyberjunky/addon-meldkamer"
+# Meldkamer lives in https://github.com/cyberjunky/home-assistant-apps now; this repository only
+# points existing installations at the image built there (same slug, so your data stays)
+image: "ghcr.io/cyberjunky/app-meldkamer"
 startup: application
 boot: auto
 # MQTT TLS certificate files (mqtt.tls_ca / tls_cert / tls_keyfile)

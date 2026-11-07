@@ -1,5 +1,24 @@
 # Changelog
 
+Meldkamer has moved to [cyberjunky/home-assistant-apps](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-meldkamer).
+This repository only carries the version number and image name forward, so an installation
+from here keeps receiving updates with its data and configuration intact. Install new
+instances from the new repository; the full changelog is kept
+[there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
+
+## 1.4.6
+
+**After updating:** nothing to do.
+
+- The Database panel on the Info tab shows the size of the database on disk.
+
+## 1.4.5
+
+**After updating:** run **Import BAG** again for Zuid-Holland, Noord-Holland, Utrecht and Gelderland.
+
+- Import BAG finds the streets of towns with two small words in their name: Alphen aan den Rijn, Capelle aan den IJssel, Koog aan de Zaan, Ouderkerk aan de Amstel and 10 more had none (3,044 streets). Streets are now looked up by the woonplaats code instead of its name, which also stops fetching the streets of other towns with a similar name.
+- Meldkamer has moved into the home-assistant-apps repository, alongside the other Cyberjunky apps. Your installation, its configuration and its data are unchanged; this and future updates are delivered from the shared image built there.
+
 ## Unreleased
 
 - Project tooling, no functional change: the Python dependencies are listed in `requirements.txt` so Dependabot keeps them and the base image and workflow actions current; a lint workflow checks the code on every push and pull request; a security policy (`SECURITY.md`) says how to report a vulnerability.
