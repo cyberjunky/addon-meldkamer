@@ -84,8 +84,9 @@ RUN cd /tmp && \
 RUN apk del build-deps && \
     apk add --no-cache libusb pulseaudio fftw py3-pip py3-requests py3-geopy sqlite
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages aiohttp paho-mqtt==1.6.1
+# Install Python dependencies (pinned in requirements.txt so Dependabot can track them)
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 # Copy S6 service and set permissions
 COPY rootfs /

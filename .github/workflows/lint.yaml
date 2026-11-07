@@ -1,0 +1,39 @@
+# Lints and format-checks the Python code on every push and pull request.
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+    paths: &lint-paths
+      - src/**
+      - ruff.toml
+      - .github/workflows/lint.yaml
+  pull_request:
+    branches:
+      - main
+    paths: *lint-paths
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check src
+
+      - name: Format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check src

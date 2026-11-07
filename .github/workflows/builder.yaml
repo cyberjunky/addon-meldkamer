@@ -10,6 +10,7 @@ on:
     paths: &build-paths
       - config.yaml
       - Dockerfile
+      - requirements.txt
       - rootfs/**
       - src/**
       - .github/workflows/builder.yaml
