@@ -2,6 +2,22 @@
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
 > **Meldkamer has moved** to [cyberjunky/home-assistant-apps](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-meldkamer). This repository only forwards existing installations to the image built there; new installations should use the new repository.
+>
+> <details>
+> <summary>Prefer to switch to the new repository?</summary>
+>
+> This is optional. Home Assistant treats it as a different app, so you move your data by hand:
+>
+> 1. In this app, choose **Data → Download backup**, and copy the options from **Configuration → Edit in YAML**.
+> 2. Stop this app, so it releases the RTL-SDR stick.
+> 3. Add `https://github.com/cyberjunky/home-assistant-apps` as a repository and install Meldkamer from it.
+> 4. Paste the options and start it.
+> 5. Choose **Data → Restore from backup** and pick the file.
+> 6. Check that everything works, then uninstall this app and remove this repository.
+>
+> Automations that start, stop or update the app need its new slug.
+>
+> </details>
 
 # Meldkamer
 
