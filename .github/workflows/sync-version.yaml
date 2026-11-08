@@ -1,0 +1,28 @@
+name: Sync version
+
+# Offers existing installations each new Meldkamer release from home-assistant-apps.
+# See .github/scripts/sync_version.py. This never builds anything: the Builder here is manual.
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: python3 .github/scripts/sync_version.py
+      - name: Commit a new version
+        run: |
+          git add config.yaml CHANGELOG.md
+          git diff --cached --quiet && exit 0
+          version=$(grep -m1 '^version:' config.yaml | tr -d '"' | cut -d' ' -f2)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Forward to ${version}"
+          git pull --rebase origin main
+          git push origin HEAD:main
