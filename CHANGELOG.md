@@ -6,6 +6,30 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.10
+
+**After updating:** nothing to do.
+
+- The top bar shows MELDKAMER next to the icon on screens up to 1400 px wide too, like GoodWe and TeslaMeter. It was hidden there.
+
+## 1.4.9
+
+**After updating:** nothing to do.
+
+- After two weeks of use, a small card in the corner of the dashboard asks for a donation. It never blocks the dashboard, which keeps running and stays usable. Maybe later asks again after 30, then 60, then every 90 days. Don't show again, or following a donate link, ends it for good.
+
+## 1.4.8
+
+**After updating:** nothing to do.
+
+- The icon and logo use the same disc and CJ badge as the other apps. The CJ was smaller, with a grey ring around the badge. The name in the logo has the same blue as the other apps too.
+
+## 1.4.7
+
+**After updating:** nothing to do.
+
+- The database backup downloads as `meldkamer-<date>.db`, the same naming as the other apps (it was `.sqlite3`). Restoring accepts `.db`, `.sqlite3` and `.sqlite` files as before.
+
 ## 1.4.6
 
 **After updating:** nothing to do.
