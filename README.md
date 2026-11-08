@@ -1,11 +1,13 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
+> **Meldkamer has moved** to [cyberjunky/home-assistant-apps](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-meldkamer). This repository only forwards existing installations to the image built there; new installations should use the new repository.
+
 # Meldkamer
 
 P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency services messages using RTL-SDR, HackRF, or network streaming.
 
-[![Add repository to my Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcyberjunky%2Faddon-meldkamer)
+[![Add repository to my Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcyberjunky%2Fhome-assistant-apps)
 
 ![Console view: message table, map and message detail with incident timeline](https://raw.githubusercontent.com/cyberjunky/addon-meldkamer/main/screenshots/console-dark.webp)
 
@@ -57,7 +59,7 @@ P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency
 
 1. Click the button to add this repository to your Home Assistant:
 
-   [![Add repository to my Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcyberjunky%2Faddon-meldkamer)
+   [![Add repository to my Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcyberjunky%2Fhome-assistant-apps)
 
    Or add it by hand: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**, and enter `https://github.com/cyberjunky/addon-meldkamer`.
 2. Find **Meldkamer** in the Add-on Store and click **Install**.
