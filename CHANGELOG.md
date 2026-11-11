@@ -6,6 +6,14 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.17
+
+**After updating:** nothing to do. Your tables and edits are kept, and a built-in row you deleted under an older version stays deleted.
+
+- The built-in lists are no longer part of the program: they ship as CSV files, one per table, in the Data tab's export format (`src/defaults/*.csv`). They are only read to fill the tables at the first start of a version; after that the database is the only source. *Import Texts* reads the same abbreviations file.
+- Fixed: at the update to 1.4.16, built-in abbreviations and ignore texts you had deleted came back once. Now a table that an older version filled without keeping track counts all its built-in rows as offered, so a deleted one stays deleted; only rows that are new since then are added.
+- Messages are read and spoken exactly as before.
+
 ## 1.4.16
 
 **After updating:** nothing to do. The database gets seven new tables at the first start, filled with the lists that were built into the app; everything already in it is kept. An abbreviation or ignore text you deleted earlier comes back one last time at this update; delete it again and it stays deleted.
