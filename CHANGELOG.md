@@ -6,6 +6,16 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.11
+
+**After updating:** if you imported BAG for more than one province, run **Import BAG** again for those provinces (selecting them all in one go is easiest). That separates same-named places that earlier versions had merged. The log lists the places that hold streets of two places, for example `Velp (27 km)`. Your own places, streets, abbreviations and capcodes are kept.
+
+- Same-named places in different provinces are now separate places: Velp in Gelderland and Velp in Noord-Brabant, Hoorn in Noord-Holland and Hoorn on Terschelling, Zuidwolde, Beek, Elsloo and about 30 more. Before, they became one place with the position of one of them and the streets of both, and a street name that both have was kept only once. Importing BAG again moves each street to its own place. (#67)
+- For a town that exists in more than one province, a message goes to the one in the province of its safety region (from the capcode, or from a vehicle number). Without a region, the town that has the street in the message wins, and otherwise the one with the most streets, so "Dorpsstraat Hoorn" from a Noord-Holland capcode is no longer placed on Terschelling, 84 km away.
+- The street counts per province under Import BAG match the import results again (once the provinces are imported again).
+- The places table shows both towns, each with its province; the streets table writes "Velp (Gelderland)" for a town that exists twice. The streets CSV export has a province column, and the streets CSV import uses it when it is there.
+- Fixed: the capcode import (bommel.net) and Import All Places could start while another import was running, and two quick clicks could start them twice. They now refuse with "Import already in progress", like Import BAG does. A page reloaded during Import All Places no longer shows the previous BAG batch ("12/12").
+
 ## 1.4.10
 
 **After updating:** nothing to do.
