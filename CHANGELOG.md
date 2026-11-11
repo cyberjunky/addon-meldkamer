@@ -6,6 +6,13 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.14
+
+**After updating:** nothing to do.
+
+- Restoring database backups and CSV imports over 16 MB works: Home Assistant refused larger uploads with "413 Content Too Large" (it read every upload into memory, up to 16 MB, unless an app asks for it to be passed through); the app now asks for that.
+- The Data tab uses the same names as the FireServiceRota app for the same tables: Abbreviations (was Texts), Replacement rules (was TTS Replacements), Talk groups, Place codes; and all card titles are written the same way (Ignore text, Ignore capcodes, Vehicle photos).
+
 ## 1.4.13
 
 **After updating:** nothing to do. The database gets two new tables at the first start (Talk Groups and Place Codes, filled with the built-in lists); everything already in it is kept.
