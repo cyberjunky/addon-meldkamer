@@ -1,5 +1,5 @@
 name: Meldkamer
-version: "1.4.15"
+version: "1.4.16"
 slug: "meldkamer"
 description: "P2000 FLEX pager decoder dashboard for Home Assistant - decode Dutch emergency services messages using RTL-SDR or HackRF"
 url: https://github.com/cyberjunky/home-assistant-apps/tree/main/app-meldkamer

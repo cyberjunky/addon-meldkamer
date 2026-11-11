@@ -6,6 +6,14 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.16
+
+**After updating:** nothing to do. The database gets seven new tables at the first start, filled with the lists that were built into the app; everything already in it is kept. An abbreviation or ignore text you deleted earlier comes back one last time at this update; delete it again and it stays deleted.
+
+- Every list the app uses to read a message is now a table on the Data tab instead of being built into the app: **Incident types**, **Priority rules**, **Address words** (street endings, words that are no street or town), **Discipline meanings** (B1 for the ambulance), **Vehicle type codes**, **Vehicle regions** and **Region provinces**. Each can be searched, added to, edited, deleted, exported and imported as CSV, is counted and in backups, and a change is used right away. With the built-in rows, messages are read exactly as before.
+- Fixed: the built-in abbreviations and the default ignore texts (*TESTOPROEP*, *MOB*) were added again at every start, so one you deleted came back. They are added once now, like the other built-in lists.
+- Spoken text: "Li" or "Re" right after a hectometer marker ("hmp 45,2 Li", "A12 Re 45,2") is said as "rijbaan links" / "rijbaan rechts"; elsewhere they stay as written. "OM" is spelled out (Openbaar Ministerie or the word "om"). PM means "Personeel- en materieelvoertuig" (was "Personeel / Materieelwagen"; an unchanged old meaning is updated).
+
 ## 1.4.15
 
 **After updating:** nothing to do. The database gets a Province codes table at the first start; everything already in it is kept.
