@@ -6,6 +6,12 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.12
+
+**After updating:** nothing to do.
+
+- The top bar is as high as Home Assistant's own header next to it (the sidebar's "Home Assistant" bar), so the two line up. It follows Home Assistant's header height, 56 px by default.
+
 ## 1.4.11
 
 **After updating:** if you imported BAG for more than one province, run **Import BAG** again for those provinces (selecting them all in one go is easiest). That separates same-named places that earlier versions had merged. The log lists the places that hold streets of two places, for example `Velp (27 km)`. Your own places, streets, abbreviations and capcodes are kept.
