@@ -6,6 +6,14 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.15
+
+**After updating:** nothing to do. The database gets a Province codes table at the first start; everything already in it is kept.
+
+- A town with its province in the message ("Velp NB", or an abbreviation such as VELPNB, RIJSZH, KATWZH) gets the place in that province. Before, an abbreviation with a province code gave the town as "Rijswijk ZH", which is no stored place: the message got no position on the map, even with its street found, and a sensor on "Rijswijk" didn't match it. "Velp NB" from a capcode without a region went to Velp in Gelderland, 27 km away. The province in the text goes before the region of the capcode.
+- New **Province codes** table on the Data tab: the codes after a town name (NB, GLD, ZH, …) and their province can be added to, edited, deleted, exported and imported as CSV. They are added once, and a change of yours is kept at updates. Backups include the table. "L" (Limburg) only counts in the place codes ("Beek L").
+- The spoken text keeps the province of a place code: VELPNB is said as "Velp Noord-Brabant".
+
 ## 1.4.14
 
 **After updating:** nothing to do.
