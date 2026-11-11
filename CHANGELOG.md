@@ -6,6 +6,15 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.13
+
+**After updating:** nothing to do. The database gets two new tables at the first start (Talk Groups and Place Codes, filled with the built-in lists); everything already in it is kept.
+
+- Talk groups like BRT-01 are spoken as "gespreksgroep Brandweer Rotterdam 0 1", using the national coding of disciplines and meldkamers (NIPV). The ten old TTS rules for talk groups are gone: they left out the talk group's number, and BAD is Amsterdam, not Amsterdam-Amstelland. A rule you had changed is kept. A talk group code with unknown letters is spelled out instead of guessed.
+- The message detail shows the talk group in words ("Gespreksgroep Brandweer Rotterdam 01"), and events have a new `talk_group_name` field. Every known talk group is recognised now, also with 1 to 4 digits ("SNH-1525"), not only the ten meldkamer codes.
+- New **Talk Groups** and **Place Codes** tables on the Data tab: the talk group letters and the place-name codes (UTRECH → Utrecht) were built into the app and can now be added to, edited, deleted, exported and imported as CSV. Town recognition, tags and the spoken text use the table, and changes apply right away. Backups include both tables.
+- The default TTS rules, talk groups and place codes are added once: a default you changed keeps your text, and one you deleted stays deleted, also after updates. Before, a deleted default TTS rule came back at every start.
+
 ## 1.4.12
 
 **After updating:** nothing to do.
