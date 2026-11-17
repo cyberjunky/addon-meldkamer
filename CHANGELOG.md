@@ -6,6 +6,20 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.18
+
+**After updating:** nothing to do when you come from 1.4.16 or 1.4.17. **A database from before 1.4.16 is no longer upgraded:** the app stops at start and its log says so. Then delete the database (or uninstall and reinstall the app, which removes its data) to begin with a new, empty one.
+
+- **Fixed: distance from home for a message placed by its postcode.** A message without a street, placed by its full postcode, never showed "... km from home" in the list, only live.
+- **No upgrades from before 1.4.16:** see above. A new installation's database is the same as before.
+- **Changes only through Home Assistant:** a request that changes something is refused unless it comes through Home Assistant's ingress, so other apps on Home Assistant's network can't upload, restore a database or change the lookup tables. Reading is unchanged.
+- **No Supervisor API access:** the app no longer asks for access to the Supervisor API; it never needed it.
+- **Start-up in the current s6-overlay layout:** the app's services are defined the way Home Assistant's base images expect now. They start and stop as before.
+- The folders the app uses are declared in Home Assistant's current form. The same folders, read-write where they were.
+- The app, its documentation and its log say "app" instead of "add-on", as Home Assistant does since 2026.2.
+- Code and styles nothing used any more are removed.
+- The README's links work inside Home Assistant.
+
 ## 1.4.17
 
 **After updating:** nothing to do. Your tables and edits are kept, and a built-in row you deleted under an older version stays deleted.
