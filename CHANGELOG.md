@@ -6,6 +6,13 @@ from here keeps receiving updates with its data and configuration intact. Instal
 instances from the new repository; the full changelog is kept
 [there](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/CHANGELOG.md).
 
+## 1.4.19
+
+**After updating:** nothing to do.
+
+- **MQTT on the current client library:** the app used an MQTT library from 2022 (paho-mqtt 1.6); it is now on the current one (2.x), set up the same way as in the other apps. Publishing to Home Assistant works as before. After a lost connection the app tries again after 5 seconds, then waits longer each time, up to 5 minutes.
+- A start-up call that Python is phasing out is replaced by its current form. Nothing changes in use.
+
 ## 1.4.18
 
 **After updating:** nothing to do when you come from 1.4.16 or 1.4.17. **A database from before 1.4.16 is no longer upgraded:** the app stops at start and its log says so. Then delete the database (or uninstall and reinstall the app, which removes its data) to begin with a new, empty one.
